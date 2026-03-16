@@ -2,346 +2,175 @@
 
 > **Clone. Run `trace`. Done.**
 
-TraceEnv automatically reconstructs your development environment from a cloned repository.
+TraceEnv automatically reconstructs your development environment from any cloned repository.
 
-Instead of manually running:
 ```bash
-npm install
-docker compose up
-cp .env.example .env
-npm run dev
-```
+git clone https://github.com/example/project
+cd project
 
-Just run:
-```bash
 trace
 ```
 
-TraceEnv extracts the setup commands from your repository, asks for confirmation, and executes them automatically.
+TraceEnv detects required setup steps, shows you the plan, and executes them automatically. **No manual setup commands required.**
 
 **Everything runs locally.** No cloud, no telemetry, no data leaves your machine.
 
 ---
 
-## The Workflow
+## Why TraceEnv?
 
-**For Project Creators:**
+### The Problem
 
-1. Work normally on your project
-2. TraceEnv daemon watches and records successful commands
-3. When done, commit `setup.sh` and deployment metadata to your repo
-4. Done
-
-**For New Developers:**
-
-1. Clone the repository
-2. Run `trace`
-3. TraceEnv shows the setup plan
-4. Press Y to execute automatically
-5. Environment is ready
-
-## How It Works
-
-**Behind the scenes:**
-
-1. TraceEnv daemon runs in background, capturing successful terminal commands
-2. Commands are stored locally in SQLite (project-specific)
-3. When `trace` is called, TraceEnv:
-   - Detects the repository
-   - Loads stored setup commands
-   - Displays them to the user with a plan
-   - Asks for confirmation
-   - Executes each step sequentially
-   - Reports success/failure for each step
-   - Stops on first error (safe)
-
-**That's it.**
-
-## Quick Start
-
-### For Project Creators
-
-**1. Install TraceEnv**
+Setting up a development environment is tedious:
 
 ```bash
-npm install -g traceenv
-```
-
-**2. Start daemon**
-
-```bash
-traceenv daemon start
-```
-
-**3. Work normally**
-
-```bash
-git init my-project
-cd my-project
-
-# Your normal setup workflow
+# What developers currently do:
 cp .env.example .env
-docker compose up -d
 npm install
+docker compose up -d
+npm run migrate
 npm run dev
 ```
 
-TraceEnv watches and records each successful step.
+**Every time.** For every project. For every developer.
 
-**4. When done, commit metadata**
+### The Solution
 
-```bash
-git add .traceenv.json setup.sh
-git commit -m "chore: add environment setup metadata"
-git push
-```
-
----
-
-### For New Developers
-
-**1. Clone repository**
-
-```bash
-git clone https://github.com/someone/my-project.git
-cd my-project
-```
-
-**2. Run trace**
+With TraceEnv:
 
 ```bash
 trace
 ```
 
-**3. See the setup plan**
+That's it. The entire setup runs automatically.
 
-```
-TraceEnv detected project environment.
+---
 
-Analyzing setup instructions...
+## Installation (One Time)
 
-Found 4 setup steps:
-
-1. cp .env.example .env
-2. docker compose up -d
-3. npm install
-4. npm run dev
-
-Run these commands now? (Y/n)
-```
-
-**4. Press Y**
-
-```
-Executing setup...
-
-[1/4] cp .env.example .env
-âœ“ Completed
-
-[2/4] docker compose up -d
-âœ“ Containers started
-
-[3/4] npm install
-âœ“ Dependencies installed
-
-[4/4] npm run dev
-âœ“ Development server running
-
-Environment setup completed.
-```
-
-**Done.** Everything is running.
-
-## Installation
-
-### Requirements
-
-- Node.js 18+
-- npm 8+
-
-### Install Globally
+### 1. Install globally (one-time)
 
 ```bash
 npm install -g traceenv
-traceenv --version
+
+# Verify installation
+trace --version
 ```
 
-### Install in Project
-
-```bash
-npm install --save-dev traceenv
-npx traceenv --version
-```
-
-### From Source
-
-```bash
-git clone https://github.com/Arjun-Walia/TraceEnv.git
-cd TraceEnv
-npm install
-npm run build
-
-node dist/cli/index.js --help
-```
-
-## Commands
-
-### `trace` (Main Command)
-
-Automatically execute the setup workflow in current directory.
+### 2. First-time setup (automatic)
 
 ```bash
 trace
 ```
 
-**What it does:**
-1. Detects if current directory is a TraceEnv-enabled repository
-2. Loads setup commands from `.traceenv.json` or `setup.sh`
-3. Displays the setup plan with all steps
-4. Asks for confirmation
-5. Executes each step sequentially
-6. Reports progress and handles errors
-
-**Example output:**
+On first run, TraceEnv will:
 
 ```
-TraceEnv detected project environment.
+TraceEnv Initial Setup
 
-Analyzing setup instructions...
+✓ Creating ~/.traceenv directory
+✓ Creating SQLite command database
+✓ Installing shell hooks (optional)
+✓ Starting background daemon
 
-Found 4 setup steps:
-
-1. cp .env.example .env
-2. docker compose up -d
-3. npm install
-4. npm run dev
-
-Run these commands now? (Y/n) > y
-
-Executing setup...
-
-[1/4] cp .env.example .env
-âœ“ Completed
-
-[2/4] docker compose up -d
-Pulling images... done
-âœ“ Containers started
-
-[3/4] npm install
-Added 523 packages... done
-âœ“ Dependencies installed
-
-[4/4] npm run dev
-Server running on http://localhost:3000
-âœ“ Development server running
-
-Environment setup completed.
+Setup complete.
 ```
 
-**Safety:**
-- Shows all commands before execution
-- Requires user confirmation
-- Stops on first error
-- Reports what went wrong
+**After this, you're ready.**
 
 ---
 
-### `traceenv record`
+## Core Workflow
 
-Manually save current successful workflow.
+### For New Developers (Simplest)
 
 ```bash
-traceenv record --dir ~/my-project
+# 1. Clone project
+git clone https://github.com/someone/project
+cd project
+
+# 2. Run trace
+trace
+
+# 3. See the setup plan (automatic)
+$ trace
+
+🚀 Setup Plan
+
+  ─ Prerequisites ────────────────────────────
+  • Node.js 18+
+  • Docker
+  • Docker Compose
+
+  ─ Workflow Steps ──────────────────────────────
+  [1] cp .env.example .env — Setup environment variables
+  [2] docker compose up -d — Start Docker services
+  [3] npm install — Install dependencies
+  [4] npm run migrate — Run database migrations
+  [5] npm run dev — Start development server
+
+  ⏱️  Estimated time: 5-10 minutes
+
+  Continue? (Y/n) y
+
+# 4. Automatic execution
+Running setup...
+
+  [1/5] ▶ cp .env.example .env
+            ✓ Success
+
+  [2/5] ▶ docker compose up -d
+            ✓ Containers started
+
+  [3/5] ▶ npm install
+            ✓ Dependencies installed
+
+  [4/5] ▶ npm run migrate
+            ✓ Database ready
+
+  [5/5] ▶ npm run dev
+            ✓ Server running on http://localhost:3000
+
+✅ Setup complete!
+
+  Executed: 5
 ```
 
-Extracts the last N successful commands and stores them as the setup sequence.
+**That's the entire workflow. Nothing else needed.**
 
 ---
 
-### `traceenv synthesize`
+### For Project Creators (Setup Once)
 
-Generate `setup.sh` and `SETUP.md` from recorded commands (optional).
-
-```bash
-traceenv synthesize --dir ~/my-project
-```
-
-Creates:
-- `setup.sh` (executable script)
-- `SETUP.md` (documentation)
-- `.traceenv.json` (metadata)
-
----
-
-### `traceenv daemon`
-
-Manage the background daemon.
-
-```bash
-traceenv daemon start   # Start background daemon
-traceenv daemon status  # Check if running
-traceenv daemon stop    # Stop daemon
-```
-
-The daemon runs on `localhost:7842` and records successful commands.
-
----
-
-### `traceenv install-hooks`
-
-Install shell hooks for automatic command capture.
-
-```bash
-traceenv install-hooks --shell bash
-source ~/.bashrc
-```
-
-Optional but recommended for automatic tracking.
-
----
-
-### `traceenv config`
-
-View and change settings.
-
-```bash
-traceenv config                    # View current config
-traceenv config --shell zsh        # Change shell
-traceenv config --port 8080        # Change daemon port
-```
-
-Config file: `~/.traceenv/config.json`
-
-## Repository Setup Files
-
-When you commit to your repository, TraceEnv creates:
-
-### `.traceenv.json` (Required)
-
-Stores the setup workflow for this project.
+**1. Create `.traceenv.json` in your project root:**
 
 ```json
 {
-  "version": "1",
+  "version": "1.0.0",
   "workflow": [
     {
       "command": "cp .env.example .env",
-      "cwd": "/path/to/project",
+      "cwd": ".",
       "description": "Setup environment variables"
     },
     {
       "command": "docker compose up -d",
-      "cwd": "/path/to/project",
+      "cwd": ".",
       "description": "Start Docker services"
     },
     {
       "command": "npm install",
-      "cwd": "/path/to/project",
+      "cwd": ".",
       "description": "Install dependencies"
     },
     {
+      "command": "npm run migrate",
+      "cwd": ".",
+      "description": "Run database migrations"
+    },
+    {
       "command": "npm run dev",
-      "cwd": "/path/to/project",
+      "cwd": ".",
       "description": "Start development server"
     }
   ],
@@ -350,218 +179,272 @@ Stores the setup workflow for this project.
     "Docker",
     "Docker Compose"
   ],
-  "estimatedTime": "5 minutes"
+  "estimatedTime": "5-10 minutes"
+}
+```
+
+**2. Or generate it automatically:**
+
+```bash
+# From an existing setup.sh
+traceenv record --from setup.sh
+
+# Interactively
+traceenv record --dir .
+```
+
+**3. Commit to your repository:**
+
+```bash
+git add .traceenv.json
+git commit -m "chore: add environment setup metadata"
+git push
+```
+
+**Done.** Every new developer can now run `trace`.
+
+---
+
+## Commands
+
+### `trace` — Setup environment (Main Command)
+
+Automatically detect and run the setup workflow.
+
+```bash
+trace                  # Run interactive setup
+trace --dry-run        # Preview without executing
+trace --skip 2 3       # Skip specific steps
+```
+
+**What it does:**
+- Automatically detects `.traceenv.json` (searches current dir and parents)
+- Shows setup plan with prerequisites and time estimate
+- Asks for confirmation (safety check)
+- Executes each step, showing progress
+- Stops on first error with helpful messages
+- Reports completion
+
+---
+
+### `traceenv record` — Create setup metadata
+
+Generate `.traceenv.json` for your project.
+
+```bash
+# From existing setup.sh
+traceenv record --from setup.sh
+
+# Interactive setup
+traceenv record --dir .
+```
+
+---
+
+### `traceenv daemon` — Manage background service
+
+```bash
+traceenv daemon start   # Start background service
+traceenv daemon status  # Check if running
+traceenv daemon stop    # Stop service
+```
+
+(Optional. Used for advanced command capture features.)
+
+---
+
+### `traceenv install-hooks` — Enable auto-capture
+
+Install shell hooks to automatically record commands (optional).
+
+```bash
+traceenv install-hooks --shell bash
+```
+
+---
+
+### `traceenv config` — Change settings
+
+```bash
+traceenv config              # View current config
+traceenv config --shell zsh  # Change shell
+```
+
+---
+
+## Features
+
+### ✅ Automatic Detection
+
+TraceEnv automatically finds your project and loads setup metadata:
+
+```bash
+# From any directory inside your project
+cd my-project/src/utils
+trace  # Finds .traceenv.json in project root
+```
+
+### ✅ Safety First
+
+- **Shows commands before execution** — Review what will run
+- **Requires confirmation** — Press Y to proceed  
+- **Stops on error** — Doesn't continue on failure
+- **Clear error messages** — Shows exactly what went wrong
+
+### ✅ Flexible Skipping
+
+```bash
+trace --skip 2      # Skip step 2
+trace --skip 2 3 4  # Skip multiple steps
+```
+
+### ✅ Preview Mode
+
+```bash
+trace --dry-run     # Show what would execute (no execution)
+```
+
+### ✅ Works Everywhere
+
+After one-time installation, the `trace` command works in any project:
+
+```bash
+cd ~/projects/nodejs-app && trace
+cd ~/projects/python-service && trace
+cd ~/projects/go-microservice && trace
+```
+
+**All automatic.**
+
+---
+
+## Requirements
+
+- **Node.js:** 18+
+- **npm:** 8+
+- **OS:** macOS, Linux, Windows (WSL recommended)
+
+---
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|-----------|
+| Runtime | Node.js 18+ |
+| Language | TypeScript |
+| Database | SQLite (Node built-in) |
+| CLI | Commander.js |
+| Server | Node http |
+
+---
+
+## Files Created
+
+### `.traceenv.json`
+
+Stores your project's setup workflow. Commit this to version control.
+
+```json
+{
+  "version": "1.0.0",
+  "workflow": [
+    { "command": "cp .env.example .env", "cwd": "." },
+    { "command": "npm install", "cwd": "." },
+    { "command": "npm run dev", "cwd": "." }
+  ],
+  "prerequisites": ["Node.js 18+"],
+  "estimatedTime": "2-5 minutes"
 }
 ```
 
 ### `setup.sh` (Optional)
 
-Executable script for manual setup (useful as fallback).
-
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-
-cp .env.example .env
-docker compose up -d
-npm install
-npm run dev
-
-echo "Setup complete!"
-```
+Fallback executable script for manual setup.
 
 ### `SETUP.md` (Optional)
 
 Human-readable setup guide.
 
-```markdown
-# Project Setup
+---
 
-Run this command to setup your environment:
+## FAQ
 
-\`\`\`bash
-trace
-\`\`\`
+**Q: Where does TraceEnv store data?**
 
-Or manually:
-
-\`\`\`bash
-cp .env.example .env
-docker compose up -d
-npm install
-npm run dev
-\`\`\`
-
-## Prerequisites
-
-- Node.js 18+
-- Docker
-- Docker Compose
-```
+A: Everything is stored locally in `~/.traceenv/`. No cloud, no external servers.
 
 ---
 
-## Global config
+**Q: Can I modify `.traceenv.json` manually?**
 
-Stored on your machine:
+A: Yes. It's a regular JSON file. Edit freely.
 
-```
-~/.traceenv/
-â”œâ”€â”€ config.json              # Your settings
-â”œâ”€â”€ commands.db              # Command history
-â”œâ”€â”€ daemon.pid               # Daemon process
-â”œâ”€â”€ hooks/                   # Shell hooks
-â”‚   â”œâ”€â”€ bash_hook.sh
-â”‚   â””â”€â”€ zsh_hook.zsh
-â””â”€â”€ cache/                   # Cache directory
-```
+---
+
+**Q: What if a setup step fails?**
+
+A: TraceEnv stops immediately and shows the error. Fix the issue and run `trace` again.
+
+---
+
+**Q: Does this work on Windows?**
+
+A: Yes, on WSL (Windows Subsystem for Linux). Native Windows support coming soon.
+
+---
+
+**Q: Can I use `trace` with monorepos?**
+
+A: Yes. Place `.traceenv.json` in each workspace root.
+
+---
+
+**Q: How do I uninstall?**
+
+A: `npm uninstall -g traceenv`
+
+---
 
 ## Troubleshooting
 
-**`trace` command not found?**
+### `trace` command not found
 
 ```bash
 npm install -g traceenv
+npm list -g traceenv
 ```
 
----
+### No `.traceenv.json` found
 
-**"No setup metadata found"?**
-
-The repository doesn't have `.traceenv.json`. Either:
-
-1. Creator hasn't recorded the setup yet:
-   ```bash
-   traceenv record --dir .
-   git add .traceenv.json
-   git commit -m "chore: add setup metadata"
-   ```
-
-2. Or record manually from setup.sh:
-   ```bash
-   traceenv record --from setup.sh
-   ```
-
----
-
-**A command failed during trace?**
-
-TraceEnv stops at the first error and shows:
-
-```
-Command failed: docker compose up -d
-
-Reason: Docker daemon not running
-
-Resolution: Start Docker daemon and try again
+```bash
+traceenv record --dir .
 ```
 
-Fix the issue, then run `trace` again. It will resume.
-
----
-
-**Permissions denied on setup.sh?**
+### Command failed with permissions error
 
 ```bash
 chmod +x setup.sh
 trace
 ```
 
----
+### Docker not running
 
-**Want to skip a step?**
-
-```bash
-trace --skip 2
-```
-
-This skips step 2 in the setup sequence.
+Start Docker and run `trace` again.
 
 ---
 
-**Dry run (show what would execute)?**
+## Contributing
 
-```bash
-trace --dry-run
-```
-
-Shows the plan without executing.
-
-## Tech Stack
-
-| Part | Tech |
-|------|------|
-| Runtime | Node.js 18+ |
-| Language | TypeScript |
-| Database | SQLite (Node built-in) |
-| CLI | Commander.js |
-| Server | Node http |
-| AI (optional) | Qwen2.5-Coder GGUF |
-
-## FAQ
-
-**How do I make `trace` available globally?**
-
-```bash
-npm install -g traceenv
-```
-
-Then `trace` works from anywhere.
+Contributions welcome! Please open an issue or PR on [GitHub](https://github.com/Arjun-Walia/TraceEnv).
 
 ---
-
-**Can I use `trace` without installing hooks?**
-
-Yes. The project creator can manually run `traceenv record --dir .` to save the setup workflow to `.traceenv.json`.
-
----
-
-**What if a command fails during setup?**
-
-TraceEnv stops immediately and shows the error. You can fix the issue and run `trace` again. It remembers where it stopped.
-
----
-
-**How do I test the setup before committing?**
-
-Run `trace --dry-run` to see what would execute without actually running it.
-
----
-
-**Can I modify `.traceenv.json` manually?**
-
-Yes. It's a regular JSON file. Just edit it and save.
-
----
-
-**Does this work on Windows?**
-
-Bash/Zsh only. Use WSL (Windows Subsystem for Linux) for Windows machines. See [#45](https://github.com/Arjun-Walia/TraceEnv/issues/45) for native PowerShell support.
-
----
-
-**Can multiple team members use `trace` on the same project?**
-
-Yes. Each developer clones the repo, runs `trace`, and their environment is set up identically. The `.traceenv.json` is committed to the repo.
-
----
-
-**What if I want different setup for different branches?**
-
-Create different `.traceenv.json` files per branch, or use conditional logic in the workflow array.
-
----
-
-**How do I know which version of TraceEnv created my setup?**
-
-Check the `version` field in `.traceenv.json`. It's included automatically.
-
----
-
-**Can I rollback setup if something goes wrong?**
-
-Use `trace --undo` (if last run failed) or manually undo commands. Future versions may add auto-rollback.
 
 ## License
 
 MIT
+
+---
+
+**TraceEnv** — Automatic environment reconstruction for developers.
+
+For more information: https://github.com/Arjun-Walia/TraceEnv
