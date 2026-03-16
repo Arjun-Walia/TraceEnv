@@ -214,6 +214,75 @@ program
     process.exit(success ? 0 : 1);
   });
 
+// ─── traceenv record ──────────────────────────────────────────────────────────
+
+program
+  .command('record')
+  .description('Record project setup workflow to .traceenv.json')
+  .option('-d, --dir <dir>', 'Project directory to record', process.cwd())
+  .option('-f, --from <path>', 'Extract from existing setup.sh file')
+  .action(async (opts: { dir: string; from?: string }) => {
+    const { Recorder } = await import('../executor/recorder.js');
+    const ui = (await import('../ui/terminal.js')).TerminalUI;
+
+    const targetDir = path.resolve(opts.dir);
+
+    let metadata;
+
+    if (opts.from) {
+      // Load from setup.sh
+      const setupPath = path.resolve(opts.from);
+      try {
+        metadata = Recorder.fromSetupScript(setupPath);
+        console.log(`✓ Extracted workflow from ${path.basename(setupPath)}\n`);
+      } catch (err) {
+        (new ui()).error(
+          `Failed to parse setup.sh: ${err instanceof Error ? err.message : String(err)}`
+        );
+        process.exit(1);
+      }
+    } else {
+      // Interactive recording
+      try {
+        metadata = await Recorder.interactive(targetDir);
+      } catch (err) {
+        (new ui()).error(
+          `Failed to record workflow: ${err instanceof Error ? err.message : String(err)}`
+        );
+        process.exit(1);
+      }
+    }
+
+    // Display what will be saved
+    console.log('\n📋 Workflow to be saved:\n');
+    metadata.workflow.forEach((step, idx) => {
+      const desc = step.description ? ` — ${step.description}` : '';
+      console.log(`  [${idx + 1}] ${step.command}${desc}`);
+    });
+
+    if (metadata.prerequisites && metadata.prerequisites.length > 0) {
+      console.log('\nPrerequisites:');
+      metadata.prerequisites.forEach((p) => console.log(`  • ${p}`));
+    }
+
+    console.log(`\nEstimated time: ${metadata.estimatedTime}\n`);
+
+    // Save to file
+    const outputPath = Recorder.save(metadata, targetDir);
+    (new ui()).success(
+      `Workflow saved to .traceenv.json`,
+      [outputPath]
+    );
+
+    console.log('Next steps:\n');
+    console.log('  1. Review the .traceenv.json file');
+    console.log('  2. Commit it to your repository:');
+    console.log('     $ git add .traceenv.json');
+    console.log('     $ git commit -m "chore: add setup metadata"\n');
+    console.log('  3. New developers can now run:');
+    console.log('     $ trace\n');
+  });
+
 // ─── traceenv install-hooks ───────────────────────────────────────────────────
 
 program

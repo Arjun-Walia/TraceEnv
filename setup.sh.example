@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Setup script for TestProject
+
+echo "Starting setup..."
+
+# Copy environment file
+cp .env.example .env
+
+# Install dependencies
+npm install
+
+# Start Docker services
+docker compose up -d
+
+# Run migrations
+npm run migrate
+
+# Build the project
+npm run build
+
+echo "Setup complete!"

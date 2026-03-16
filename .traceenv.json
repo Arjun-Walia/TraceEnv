@@ -2,24 +2,45 @@
   "version": "1.0.0",
   "workflow": [
     {
-      "command": "echo 'Step 1: Initializing setup'",
+      "command": "echo \"Starting setup...\"",
       "cwd": ".",
-      "description": "Initialize the setup process"
+      "description": ""
+    },
+    {
+      "command": "cp .env.example .env",
+      "cwd": ".",
+      "description": ""
     },
     {
       "command": "npm install",
       "cwd": ".",
-      "description": "Install npm dependencies"
+      "description": ""
     },
     {
-      "command": "echo 'Step 3: Build complete'",
+      "command": "docker compose up -d",
       "cwd": ".",
-      "description": "Confirm build completion"
+      "description": ""
+    },
+    {
+      "command": "npm run migrate",
+      "cwd": ".",
+      "description": ""
+    },
+    {
+      "command": "npm run build",
+      "cwd": ".",
+      "description": ""
+    },
+    {
+      "command": "echo \"Setup complete!\"",
+      "cwd": ".",
+      "description": ""
     }
   ],
   "prerequisites": [
     "Node.js 18+",
-    "npm"
+    "Docker",
+    "Docker Compose"
   ],
-  "estimatedTime": "2 minutes"
+  "estimatedTime": "5-10 minutes"
 }
