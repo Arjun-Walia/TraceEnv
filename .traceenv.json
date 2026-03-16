@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "workflow": [
+    {
+      "command": "echo 'Step 1: Initializing setup'",
+      "cwd": ".",
+      "description": "Initialize the setup process"
+    },
+    {
+      "command": "npm install",
+      "cwd": ".",
+      "description": "Install npm dependencies"
+    },
+    {
+      "command": "echo 'Step 3: Build complete'",
+      "cwd": ".",
+      "description": "Confirm build completion"
+    }
+  ],
+  "prerequisites": [
+    "Node.js 18+",
+    "npm"
+  ],
+  "estimatedTime": "2 minutes"
+}

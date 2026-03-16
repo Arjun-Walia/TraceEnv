@@ -164,6 +164,56 @@ program
     console.log(`📁 Output directory: ${outputDir}\n`);
   });
 
+// ─── trace (automatic environment setup) ──────────────────────────────────────
+
+program
+  .command('trace')
+  .description('Automatically setup environment from .traceenv.json')
+  .option('-d, --dry-run', 'Preview setup without executing')
+  .option('-s, --skip <steps...>', 'Skip specific step numbers (e.g., --skip 2 3)')
+  .option('--undo', 'Rollback last setup execution')
+  .action(async (opts: { dryRun?: boolean; skip?: string[]; undo?: boolean }) => {
+    const { Tracer } = await import('../executor/tracer.js');
+
+    const tracer = new Tracer(process.cwd());
+
+    // Try to load .traceenv.json
+    let metadata;
+    try {
+      metadata = tracer.loadMetadata(process.cwd());
+    } catch (err) {
+      const ui = (await import('../ui/terminal.js')).TerminalUI;
+      (new ui()).error(`${err instanceof Error ? err.message : String(err)}`);
+      process.exit(1);
+    }
+
+    if (!metadata) {
+      const ui = (await import('../ui/terminal.js')).TerminalUI;
+      (new ui()).error('No .traceenv.json found in current directory');
+      console.log('\nTo create setup metadata, run:');
+      console.log('  $ traceenv record --dir .\n');
+      process.exit(1);
+    }
+
+    // Parse skip steps
+    const skipSteps = opts.skip ? opts.skip.map((s) => parseInt(s, 10)) : [];
+
+    // Display setup plan
+    const confirmed = await tracer.displayPlan(metadata);
+    if (!confirmed) {
+      console.log('Setup cancelled.\n');
+      process.exit(0);
+    }
+
+    // Execute setup
+    const success = await tracer.execute(metadata, {
+      dryRun: opts.dryRun ?? false,
+      skipSteps,
+    });
+
+    process.exit(success ? 0 : 1);
+  });
+
 // ─── traceenv install-hooks ───────────────────────────────────────────────────
 
 program
