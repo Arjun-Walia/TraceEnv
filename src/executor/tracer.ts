@@ -233,6 +233,38 @@ export class Tracer {
   }
 
   /**
+   * Translate Unix commands to Windows equivalents
+   */
+  private translateCommand(command: string): string {
+    if (process.platform !== 'win32') return command;
+
+    // cp source dest → copy source dest
+    if (command.startsWith('cp ')) {
+      return command.replace(/^cp\s+/, 'copy ');
+    }
+
+    // rm -rf dir → rmdir /s /q dir
+    if (command.startsWith('rm -rf ')) {
+      return command.replace(/^rm -rf\s+/, 'rmdir /s /q ');
+    }
+
+    // rm file → del file
+    if (command.startsWith('rm ') && !command.includes('-')) {
+      return command.replace(/^rm\s+/, 'del ');
+    }
+
+    // cat file → type file
+    if (command.startsWith('cat ')) {
+      return command.replace(/^cat\s+/, 'type ');
+    }
+
+    // mkdir is same on Windows
+    // npm, node, etc. work cross-platform
+
+    return command;
+  }
+
+  /**
    * Execute a single step with timeout and output capture
    */
   private executeStep(step: WorkflowStep, stepIndex: number, projectDir: string): Promise<StepResult> {
@@ -244,8 +276,11 @@ export class Tracer {
 
       const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
       const shellArg = process.platform === 'win32' ? '/c' : '-c';
+      
+      // Translate Unix commands to Windows equivalents if needed
+      const command = this.translateCommand(step.command);
 
-      const proc = child_process.spawn(shell, [shellArg, step.command], {
+      const proc = child_process.spawn(shell, [shellArg, command], {
         cwd,
         stdio: ['inherit', 'pipe', 'pipe'],
         timeout: 5 * 60 * 1000, // 5 minute timeout
