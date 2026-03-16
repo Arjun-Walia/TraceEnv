@@ -51,6 +51,24 @@ export class Tracer {
   }
 
   /**
+   * Find .traceenv.json by searching up the directory tree
+   */
+  static findMetadataFile(startDir: string = process.cwd()): string | null {
+    let currentDir = startDir;
+    const root = path.parse(currentDir).root;
+
+    while (currentDir !== root) {
+      const metadataPath = path.join(currentDir, '.traceenv.json');
+      if (fs.existsSync(metadataPath)) {
+        return metadataPath;
+      }
+      currentDir = path.dirname(currentDir);
+    }
+
+    return null;
+  }
+
+  /**
    * Try to load .traceenv.json from the given directory
    */
   loadMetadata(dir: string = this.workingDir): TraceEnvMetadata | null {
@@ -78,13 +96,35 @@ export class Tracer {
   }
 
   /**
+   * Try to find and load .traceenv.json from current dir or parents
+   */
+  autoLoadMetadata(): { metadata: TraceEnvMetadata | null; projectDir: string } {
+    const metadataPath = Tracer.findMetadataFile(this.workingDir);
+    
+    if (!metadataPath) {
+      return { metadata: null, projectDir: this.workingDir };
+    }
+
+    const projectDir = path.dirname(metadataPath);
+    const metadata = this.loadMetadata(projectDir);
+    
+    return { metadata, projectDir };
+  }
+
+  /**
    * Display the setup plan interactively and ask for confirmation
    */
-  async displayPlan(metadata: TraceEnvMetadata): Promise<boolean> {
+  async displayPlan(metadata: TraceEnvMetadata, projectDir: string = this.workingDir): Promise<boolean> {
     const { TRACEENV_LOGO } = await import('../ui/animations.js');
     
     console.log(TRACEENV_LOGO);
-    console.log('\n🚀 Setup Plan\n');
+    
+    const relativePath = path.relative(process.cwd(), projectDir);
+    if (relativePath && relativePath !== '.') {
+      console.log(`\n📍 Project: ${relativePath}\n`);
+    }
+
+    console.log('🚀 Setup Plan\n');
 
     if (metadata.prerequisites && metadata.prerequisites.length > 0) {
       TerminalUI.section('Prerequisites');
@@ -127,9 +167,10 @@ export class Tracer {
     options: {
       dryRun?: boolean;
       skipSteps?: number[];
+      projectDir?: string;
     } = {}
   ): Promise<boolean> {
-    const { dryRun = false, skipSteps = [] } = options;
+    const { dryRun = false, skipSteps = [], projectDir = this.workingDir } = options;
 
     if (dryRun) {
       console.log('\n📋 Dry Run Mode — No commands will be executed\n');
@@ -160,7 +201,7 @@ export class Tracer {
       }
 
       // Execute the step
-      const result = await this.executeStep(step, i);
+      const result = await this.executeStep(step, i, projectDir);
 
       if (result.exitCode === 0) {
         console.log(`            ✓ Success\n`);
@@ -194,9 +235,9 @@ export class Tracer {
   /**
    * Execute a single step with timeout and output capture
    */
-  private executeStep(step: WorkflowStep, stepIndex: number): Promise<StepResult> {
+  private executeStep(step: WorkflowStep, stepIndex: number, projectDir: string): Promise<StepResult> {
     return new Promise((resolve) => {
-      const cwd = step.cwd ? path.resolve(this.workingDir, step.cwd) : this.workingDir;
+      const cwd = step.cwd ? path.resolve(projectDir, step.cwd) : projectDir;
       let stdout = '';
       let stderr = '';
       const startTime = Date.now();
@@ -258,3 +299,4 @@ export class Tracer {
     this.aborted = true;
   }
 }
+

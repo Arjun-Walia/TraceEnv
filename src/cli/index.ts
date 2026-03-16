@@ -174,24 +174,29 @@ program
   .option('--undo', 'Rollback last setup execution')
   .action(async (opts: { dryRun?: boolean; skip?: string[]; undo?: boolean }) => {
     const { Tracer } = await import('../executor/tracer.js');
+    const terminalModule = await import('../ui/terminal.js');
+    const TerminalUI = terminalModule.TerminalUI;
 
     const tracer = new Tracer(process.cwd());
 
-    // Try to load .traceenv.json
-    let metadata;
+    // Auto-detect metadata (search up directory tree)
+    let metadata, projectDir;
     try {
-      metadata = tracer.loadMetadata(process.cwd());
+      const result = tracer.autoLoadMetadata();
+      metadata = result.metadata;
+      projectDir = result.projectDir;
     } catch (err) {
-      const ui = (await import('../ui/terminal.js')).TerminalUI;
-      (new ui()).error(`${err instanceof Error ? err.message : String(err)}`);
+      (new TerminalUI()).error(`${err instanceof Error ? err.message : String(err)}`);
       process.exit(1);
     }
 
     if (!metadata) {
-      const ui = (await import('../ui/terminal.js')).TerminalUI;
-      (new ui()).error('No .traceenv.json found in current directory');
+      (new TerminalUI()).error('No .traceenv.json found');
+      console.log('\nTraceEnv could not find setup metadata in this directory or any parent directory.');
       console.log('\nTo create setup metadata, run:');
       console.log('  $ traceenv record --dir .\n');
+      console.log('Or manually create .traceenv.json in your project root.');
+      console.log('See: https://github.com/Arjun-Walia/TraceEnv#repository-setup-files\n');
       process.exit(1);
     }
 
@@ -199,7 +204,7 @@ program
     const skipSteps = opts.skip ? opts.skip.map((s) => parseInt(s, 10)) : [];
 
     // Display setup plan
-    const confirmed = await tracer.displayPlan(metadata);
+    const confirmed = await tracer.displayPlan(metadata, projectDir);
     if (!confirmed) {
       console.log('Setup cancelled.\n');
       process.exit(0);
@@ -209,6 +214,7 @@ program
     const success = await tracer.execute(metadata, {
       dryRun: opts.dryRun ?? false,
       skipSteps,
+      projectDir,
     });
 
     process.exit(success ? 0 : 1);
@@ -649,6 +655,21 @@ function startDaemonSync(): void {
   await runFirstTimeDemo();
 
   if (process.argv.length <= 2) {
+    // Smart: if we're in a project with .traceenv.json, suggest running trace
+    const { Tracer } = await import('../executor/tracer.js');
+    const metadataPath = Tracer.findMetadataFile(process.cwd());
+    
+    if (metadataPath) {
+      // We're in a project with setup metadata
+      console.log('TraceEnv detected a setup workflow.\n');
+      console.log('Run project setup:\n');
+      console.log('  $ trace\n');
+      console.log('Or for options:\n');
+      console.log('  $ trace --help\n');
+      process.exit(0);
+    }
+    
+    // Otherwise show help
     program.outputHelp();
     process.exit(0);
   }
