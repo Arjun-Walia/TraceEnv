@@ -48,14 +48,25 @@ That's it. The entire setup runs automatically.
 
 ## Installation (One Time)
 
-### 1. Install globally (one-time)
+### 1. Install globally from source
+
+**From GitHub (or a zip file):**
 
 ```bash
-npm install -g traceenv
+# Clone the repo (or extract the zip)
+git clone https://github.com/Arjun-Walia/TraceEnv
+cd TraceEnv
+
+# Build and install globally
+npm install
+npm run build
+npm install -g .
 
 # Verify installation
 trace --version
 ```
+
+> **Note:** `traceenv` package will be published to npm soon. After that: `npm install -g traceenv`
 
 ### 2. First-time setup (automatic)
 
