@@ -9,7 +9,7 @@ import { validateInferredWorkflow } from './validation.js';
 import { scanManifests } from '../tooling/fs/manifest-scanner.js';
 
 export class IntelligenceEngine {
-  constructor(private readonly config?: Pick<TraceEnvConfig, 'mode' | 'provider' | 'model' | 'apiKey'>) {}
+  constructor(private readonly config?: Pick<TraceEnvConfig, 'mode' | 'provider' | 'model' | 'apiKey' | 'apiKeys'>) {}
 
   private createRequest(projectRoot: string): IntelligenceRequest {
     const manifests = scanManifests(projectRoot);
@@ -17,7 +17,12 @@ export class IntelligenceEngine {
     return {
       projectRoot,
       model: this.config?.model,
-      apiKey: this.config?.apiKey ?? null,
+      apiKey:
+        this.config?.provider === 'openai'
+          ? this.config.apiKeys?.openai ?? this.config?.apiKey ?? null
+          : this.config?.provider === 'claude'
+            ? this.config.apiKeys?.claude ?? this.config?.apiKey ?? null
+            : this.config?.apiKey ?? null,
       prompt: buildPromptBundle('infer-workflow', { projectRoot, manifests }),
     };
   }

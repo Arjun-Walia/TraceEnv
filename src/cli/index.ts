@@ -309,6 +309,12 @@ program
     }
     if (opts.provider) {
       config.provider = opts.provider;
+      config.apiKey =
+        opts.provider === 'openai'
+          ? config.apiKeys?.openai ?? null
+          : opts.provider === 'claude'
+            ? config.apiKeys?.claude ?? null
+            : null;
       changed = true;
     }
     if (opts.model) {
@@ -317,9 +323,21 @@ program
     }
     if (opts.apiKey) {
       config.apiKey = opts.apiKey;
+      if (config.provider === 'openai' || config.provider === 'claude') {
+        config.apiKeys = {
+          ...(config.apiKeys ?? {}),
+          [config.provider]: opts.apiKey,
+        };
+      }
       changed = true;
     }
     if (opts.clearApiKey) {
+      if (config.provider === 'openai' || config.provider === 'claude') {
+        config.apiKeys = {
+          ...(config.apiKeys ?? {}),
+        };
+        delete config.apiKeys[config.provider];
+      }
       config.apiKey = null;
       changed = true;
     }

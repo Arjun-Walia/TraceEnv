@@ -20,6 +20,7 @@ export interface TraceEnvConfig {
   model: string;
   provider: IntelligenceProvider;
   apiKey: string | null;
+  apiKeys?: Partial<Record<'openai' | 'claude', string>>;
   daemonPort: number;
   privacy: {
     telemetry: boolean;
@@ -34,6 +35,7 @@ const DEFAULT_CONFIG: TraceEnvConfig = {
   model: 'qwen2.5-coder',
   provider: 'local',
   apiKey: null,
+  apiKeys: {},
   daemonPort: DAEMON_PORT,
   privacy: {
     telemetry: false,
@@ -54,7 +56,15 @@ export function loadConfig(): TraceEnvConfig {
   }
   try {
     const raw = fs.readFileSync(CONFIG_PATH, 'utf-8');
-    return { ...DEFAULT_CONFIG, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw) as Partial<TraceEnvConfig>;
+    return {
+      ...DEFAULT_CONFIG,
+      ...parsed,
+      apiKeys: {
+        ...DEFAULT_CONFIG.apiKeys,
+        ...(parsed.apiKeys ?? {}),
+      },
+    };
   } catch {
     return { ...DEFAULT_CONFIG };
   }
