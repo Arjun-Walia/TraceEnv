@@ -19,7 +19,14 @@ export function loadWorkflowSpec(projectRoot: string): WorkflowSpec | null {
     const raw = fs.readFileSync(filePath, 'utf-8');
     const parsed = JSON.parse(raw) as {
       version: string;
-      workflow: Array<{ command: string; cwd?: string; description?: string }>;
+      workflow: Array<{
+        command: string;
+        cwd?: string;
+        description?: string;
+        timeoutMs?: number;
+        retryCount?: number;
+        continueOnError?: boolean;
+      }>;
       prerequisites?: string[];
       estimatedTime?: string;
       validationRules?: WorkflowSpec['validationRules'];
@@ -41,6 +48,9 @@ export function loadWorkflowSpec(projectRoot: string): WorkflowSpec | null {
         command: step.command,
         cwd: step.cwd,
         description: step.description,
+        timeoutMs: step.timeoutMs,
+        retryCount: step.retryCount,
+        continueOnError: step.continueOnError,
       })),
     };
   } catch (error) {

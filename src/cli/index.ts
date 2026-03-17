@@ -15,6 +15,7 @@ import {
   HOOKS_DIR,
 } from '../config';
 import { registerModelCommands } from './commands/model.js';
+import { accent, bold, muted, white } from '../ui/theme.js';
 
 const program = new Command();
 
@@ -119,8 +120,37 @@ daemonCmd
     }
     try {
       const raw = await httpGet(`http://127.0.0.1:${config.daemonPort}/health`);
-      const info = JSON.parse(raw) as { status: string; pid: number };
-      console.log(`[trace] Daemon is running — PID: ${info.pid}, status: ${info.status}`);
+      const info = JSON.parse(raw) as {
+        status: string;
+        pid: number;
+        uptimeSec?: number;
+        memoryMb?: number;
+        events?: Array<{ timestamp: number; command: string; cwd: string }>;
+      };
+
+      const uptime = info.uptimeSec ?? 0;
+      const hours = Math.floor(uptime / 3600);
+      const mins = Math.floor((uptime % 3600) / 60);
+      const uptimeText = info.uptimeSec === undefined ? 'N/A' : `${hours}h ${mins}m`;
+      const memoryText = info.memoryMb === undefined ? 'N/A (restart daemon to refresh metrics)' : `${info.memoryMb} MB (Daemon)`;
+
+      console.log(`\n${bold(white('  ⚙ TraceEnv Background Daemon'))}`);
+      console.log(`  ${padKey('Status:')} ${accent(`🟢 Active (PID: ${info.pid})`)}`);
+      console.log(`  ${padKey('Uptime:')} ${muted(uptimeText)}`);
+      console.log(`  ${padKey('Memory:')} ${muted(memoryText)}`);
+      console.log(`  ${padKey('Event Log:')} `);
+
+      if (!info.events || info.events.length === 0) {
+        console.log(`  ${muted('│ No intercepted shell events yet.')}`);
+      } else {
+        info.events.forEach((event) => {
+          const stamp = new Date(event.timestamp).toTimeString().slice(0, 8);
+          const command = event.command.length > 42 ? `${event.command.slice(0, 39)}...` : event.command;
+          console.log(`  ${muted(`│ ${stamp}  Intercepted \`${command}\` in ${event.cwd}`)}`);
+        });
+      }
+      console.log(`  ${muted('╰─ Listening for shell hooks...')}`);
+      console.log();
     } catch {
       console.log('[trace] Daemon process exists but HTTP endpoint is not responding.');
     }
@@ -395,6 +425,10 @@ function httpGet(url: string): Promise<string> {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function padKey(key: string): string {
+  return `${key}${' '.repeat(Math.max(0, 12 - key.length))}`;
 }
 
 function installHook(shell: 'bash' | 'zsh'): void {

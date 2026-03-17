@@ -1,6 +1,6 @@
 import * as http from 'http';
 import * as os from 'os';
-import { insertCommand } from '../storage/database';
+import { getSuccessfulCommands, insertCommand } from '../storage/database';
 import { DAEMON_PORT } from '../config';
 
 interface CommandPayload {
@@ -8,6 +8,16 @@ interface CommandPayload {
   cwd: string;
   exitCode: number;
   sessionId: string;
+}
+
+const daemonStartedAt = Date.now();
+
+function recentEventLog(limit = 3): Array<{ timestamp: number; command: string; cwd: string }> {
+  return getSuccessfulCommands(limit).map((record) => ({
+    timestamp: record.timestamp,
+    command: record.command,
+    cwd: record.cwd,
+  }));
 }
 
 function parseBody(req: http.IncomingMessage): Promise<string> {
@@ -44,7 +54,16 @@ export function createDaemonServer(): http.Server {
     // Health check
     if (req.method === 'GET' && req.url === '/health') {
       res.writeHead(200);
-      res.end(JSON.stringify({ status: 'ok', pid: process.pid }));
+      const memoryMb = Math.round((process.memoryUsage().rss / (1024 * 1024)) * 10) / 10;
+      res.end(
+        JSON.stringify({
+          status: 'ok',
+          pid: process.pid,
+          uptimeSec: Math.floor((Date.now() - daemonStartedAt) / 1000),
+          memoryMb,
+          events: recentEventLog(5),
+        })
+      );
       return;
     }
 

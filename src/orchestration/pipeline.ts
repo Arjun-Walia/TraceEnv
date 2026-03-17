@@ -14,9 +14,11 @@ export interface PipelineHooks {
     plan: TraceRunResult['plan'];
     estimatedTime?: string;
     prerequisites?: string[];
+    dependencies?: TraceRunResult['detectedDependencies'];
     autoApprove: boolean;
   }) => Promise<boolean>;
   onStepStart?: (index: number, total: number, command: string) => void;
+  onStepRetry?: (index: number, total: number, attempt: number, maxAttempts: number, reason: string) => void;
   onStepResult?: (index: number, total: number, result: TraceRunResult['results'][number]) => void;
 }
 
@@ -45,6 +47,7 @@ export class TracePipeline {
         plan,
         estimatedTime: workflow.estimatedTime,
         prerequisites: workflow.prerequisites,
+        dependencies: analysis.dependencies,
         autoApprove: options.autoApprove ?? false,
       });
       if (!approved) {
@@ -53,6 +56,13 @@ export class TracePipeline {
           projectRoot,
           plan,
           results: [],
+          summary: {
+            totalSteps: plan.resolvedSteps.length,
+            completedSteps: 0,
+            skippedSteps: 0,
+          },
+          detectedDependencies: analysis.dependencies,
+          recoverySuggestions: [],
           failureReason: 'Cancelled by user',
         };
       }
@@ -64,6 +74,7 @@ export class TracePipeline {
       dryRun: options.dryRun,
       skipSteps: options.skipSteps,
       onStepStart: hooks.onStepStart,
+      onStepRetry: hooks.onStepRetry,
       onStepResult: hooks.onStepResult,
     });
 
@@ -72,6 +83,14 @@ export class TracePipeline {
       projectRoot,
       plan,
       results: execution.results,
+      summary: {
+        totalSteps: plan.resolvedSteps.length,
+        completedSteps: execution.results.filter((step) => step.status === 'success' || step.status === 'dry-run').length,
+        skippedSteps: execution.results.filter((step) => step.status === 'skipped').length,
+        failedStep: execution.results.find((step) => step.status === 'failed')?.command,
+      },
+      detectedDependencies: analysis.dependencies,
+      recoverySuggestions: execution.recoverySuggestions,
       failureReason: execution.failureReason,
     };
   }

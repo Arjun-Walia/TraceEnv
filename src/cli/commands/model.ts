@@ -6,6 +6,7 @@ import {
   resolveModelSelection,
 } from '../../intelligence/registry.js';
 import * as fs from 'fs';
+import { accent, bold, muted, padRight, white } from '../../ui/theme.js';
 
 type ApiProvider = 'openai' | 'claude';
 
@@ -27,25 +28,55 @@ export function registerModelCommands(program: { command(name: string): any }): 
     .action(() => {
       const config = configRepo.load();
       const providers = listProviderDescriptors();
-
-      console.log('\nAvailable intelligence backends\n');
-      providers.forEach((provider) => {
-        const selected = provider.id === config.provider ? '  * selected' : '';
-        const mode = provider.mode.padEnd(6, ' ');
-        console.log(`- ${provider.id}  ${provider.label}${selected}`);
-        console.log(`  mode: ${mode}  network: ${provider.requiresNetwork ? 'yes' : 'no'}`);
-        console.log(`  models: ${provider.models.join(', ')}`);
-      });
-
       const localModels = fs.existsSync(MODELS_DIR)
         ? fs.readdirSync(MODELS_DIR).filter((file) => file.endsWith('.gguf'))
         : [];
 
-      console.log('\nCurrent');
-      console.log(`  ${formatMode(config)}`);
-      console.log(`  local gguf files: ${localModels.length > 0 ? localModels.join(', ') : 'none found'}`);
-      console.log(`  openai auth: ${getStoredApiKey(config, 'openai') ? 'configured' : 'not set'}`);
-      console.log(`  claude auth: ${getStoredApiKey(config, 'claude') ? 'configured' : 'not set'}`);
+      console.log(`\n${bold(white('  AI Engine Configuration'))}`);
+      console.log(`  ${muted(`Currently Active: ${config.model} (${config.provider})`)}`);
+      console.log();
+      console.log(`  ${padRight('MODEL', 20)}${padRight('TYPE', 14)}${padRight('STATUS', 14)}LATENCY`);
+
+      const rows: Array<{ model: string; type: string; status: string; latency: string; active: boolean }> = [
+        {
+          model: 'local-heuristic',
+          type: 'Rule-based',
+          status: 'Installed',
+          latency: '< 1ms',
+          active: config.provider === 'rule',
+        },
+        {
+          model: 'qwen2.5:7b',
+          type: 'Local AI',
+          status: localModels.length > 0 ? 'Installed' : 'Not Pulled',
+          latency: '~ 400ms',
+          active: config.provider === 'local',
+        },
+        {
+          model: 'openai-gpt4',
+          type: 'API',
+          status: getStoredApiKey(config, 'openai') ? 'Configured' : 'No Key',
+          latency: '~ 1.2s',
+          active: config.provider === 'openai',
+        },
+        {
+          model: 'claude-sonnet',
+          type: 'API',
+          status: getStoredApiKey(config, 'claude') ? 'Configured' : 'No Key',
+          latency: '~ 1.4s',
+          active: config.provider === 'claude',
+        },
+      ];
+
+      rows.forEach((row) => {
+        const marker = row.active ? accent('❯ ') : '  ';
+        const statusText = row.active ? 'Active' : row.status;
+        const rendered = `${marker}${padRight(row.model, 18)}${padRight(row.type, 14)}${padRight(statusText, 14)}${muted(row.latency)}`;
+        console.log(`  ${rendered}`);
+      });
+
+      console.log();
+      console.log(`  ${muted('Tip: Use trace model use <name> to switch engines instantly.')}`);
       console.log();
     });
 
@@ -134,14 +165,15 @@ export function registerModelCommands(program: { command(name: string): any }): 
       const config = configRepo.load();
       const provider = getProviderDescriptor(config.provider);
 
-      console.log('\nTraceEnv intelligence\n');
-      console.log(`Mode:      ${config.mode}`);
-      console.log(`Provider:  ${provider.id}`);
-      console.log(`Model:     ${config.model}`);
-      console.log(`API key:   ${config.apiKey ? 'configured' : 'not set'}`);
-      console.log(`OpenAI:    ${getStoredApiKey(config, 'openai') ? 'configured' : 'not set'}`);
-      console.log(`Claude:    ${getStoredApiKey(config, 'claude') ? 'configured' : 'not set'}`);
-      console.log(`Models dir: ${MODELS_DIR}`);
+      console.log(`\n${bold(white('  AI Engine Configuration'))}`);
+      console.log(`  ${muted(`Currently Active: ${config.model} (${provider.id})`)}`);
+      console.log();
+      console.log(`  ${padRight('Mode', 14)} ${config.mode}`);
+      console.log(`  ${padRight('Provider', 14)} ${provider.id}`);
+      console.log(`  ${padRight('Model', 14)} ${config.model}`);
+      console.log(`  ${padRight('OpenAI Key', 14)} ${getStoredApiKey(config, 'openai') ? accent('Configured') : muted('Not Set')}`);
+      console.log(`  ${padRight('Claude Key', 14)} ${getStoredApiKey(config, 'claude') ? accent('Configured') : muted('Not Set')}`);
+      console.log(`  ${padRight('Models Dir', 14)} ${muted(MODELS_DIR)}`);
       console.log();
     });
 }

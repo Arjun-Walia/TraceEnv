@@ -38,6 +38,12 @@ export interface EnvironmentSnapshot {
   manifests: string[];
 }
 
+export interface DependencyInsight {
+  name: string;
+  kind: 'package-manager' | 'service' | 'runtime' | 'database' | 'env-file' | 'build-tool';
+  source: 'manifest' | 'workflow';
+}
+
 export interface ExecutionPlanStep {
   stepId: string;
   command: string;
@@ -60,12 +66,26 @@ export interface ExecutionPlan {
 
 export type StepStatus = 'success' | 'failed' | 'skipped' | 'dry-run';
 
+export type FailureKind =
+  | 'missing-command'
+  | 'missing-file'
+  | 'permission'
+  | 'network'
+  | 'timeout'
+  | 'service'
+  | 'unknown';
+
 export interface StepResult {
   stepId: string;
   command: string;
   status: StepStatus;
   exitCode: number;
   durationMs: number;
+  attemptCount?: number;
+  maxAttempts?: number;
+  retriable?: boolean;
+  failureKind?: FailureKind;
+  recoverySuggestion?: string;
   stdoutSummary?: string;
   stderrSummary?: string;
   artifactsChanged?: string[];
@@ -74,6 +94,19 @@ export interface StepResult {
 export interface PlanValidationResult {
   ok: boolean;
   issues: string[];
+}
+
+export interface ExecutionFeedback {
+  failureKind: FailureKind;
+  retriable: boolean;
+  suggestion: string;
+}
+
+export interface ExecutionSummary {
+  totalSteps: number;
+  completedSteps: number;
+  skippedSteps: number;
+  failedStep?: string;
 }
 
 export interface TraceRunOptions {
@@ -87,5 +120,8 @@ export interface TraceRunResult {
   projectRoot: string;
   plan: ExecutionPlan;
   results: StepResult[];
+  summary: ExecutionSummary;
+  detectedDependencies?: DependencyInsight[];
+  recoverySuggestions?: string[];
   failureReason?: string;
 }
