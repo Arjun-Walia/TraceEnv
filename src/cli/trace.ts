@@ -9,6 +9,41 @@ import * as path from 'path';
 import { detectProjectRoot } from '../tooling/fs/project-detector.js';
 import { accent, bold, BRAILLE_SPINNER, clearLine, muted, padRight, secondary, white } from '../ui/theme.js';
 
+const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
+
+function visibleLength(text: string): number {
+  return text.replace(ANSI_PATTERN, '').length;
+}
+
+function fitPlain(text: string, width: number): string {
+  if (width <= 0) return '';
+  if (visibleLength(text) <= width) return text;
+  if (width === 1) return '…';
+  return `${text.slice(0, width - 1)}…`;
+}
+
+function getCardWidths(preferredOuter = 68): { inner: number; body: number } {
+  const columns = process.stdout.columns ?? 80;
+  const maxOuter = Math.max(10, columns - 1);
+  const outer = Math.min(preferredOuter, maxOuter);
+  const inner = Math.max(8, outer - 2);
+  const body = Math.max(1, inner - 2);
+  return { inner, body };
+}
+
+function renderCardTop(title: string, inner: number): void {
+  const prefix = `── ✦ ${title} `;
+  const fittedPrefix = fitPlain(prefix, inner);
+  const fill = Math.max(0, inner - visibleLength(fittedPrefix));
+  console.log(accent('╭') + accent(fittedPrefix) + secondary('─'.repeat(fill)) + accent('╮'));
+}
+
+function renderCardBottom(inner: number, rightText: string): void {
+  const tag = fitPlain(` ${rightText} `, inner);
+  const fill = Math.max(0, inner - visibleLength(tag));
+  console.log(accent('╰') + secondary('─'.repeat(fill)) + muted(tag) + accent('╯'));
+}
+
 async function confirmPlan(prompt: string): Promise<boolean> {
   const rl = readline.createInterface({ input, output });
   try {
@@ -47,8 +82,9 @@ function estimateFor(command: string): string {
   return '~ < 5s';
 }
 
-function cardRow(content: string, width = 64): string {
-  return `${accent('│')} ${padRight(content, width)} ${accent('│')}`;
+function cardRow(content: string, width: number): string {
+  const fitted = fitPlain(content, width);
+  return `${accent('│')} ${padRight(fitted, width)} ${accent('│')}`;
 }
 
 function countDependencies(projectRoot: string): number {
@@ -101,14 +137,15 @@ async function renderWorkspaceCard(projectRoot: string): Promise<void> {
   const services = countComposeServices(projectRoot);
   const keys = countEnvKeys(projectRoot);
   const elapsed = Date.now() - scanStart;
+  const { inner, body } = getCardWidths();
 
-  console.log(`${accent('╭── ✦ TraceEnv: Workspace Analysis ')}${secondary('─'.repeat(28))}${accent('╮')}`);
-  console.log(cardRow(''));
-  console.log(cardRow(`[✔] ${padRight('package.json', 24)} ${hasPackage ? `Found ${deps} dependencies` : 'Not found'}`));
-  console.log(cardRow(`[✔] ${padRight('docker-compose.yml', 24)} ${hasCompose ? `Found ${services} services` : 'Not found'}`));
-  console.log(cardRow(`[✔] ${padRight('.env.example', 24)} ${hasEnv ? `Found ${keys} configuration keys` : 'Not found'}`));
-  console.log(cardRow(''));
-  console.log(accent('╰') + secondary('─'.repeat(58)) + ` ${muted(`⏱ ${elapsed}ms`)} ${accent('╯')}`);
+  renderCardTop('TraceEnv: Workspace Analysis', inner);
+  console.log(cardRow('', body));
+  console.log(cardRow(`[✔] ${padRight('package.json', 24)} ${hasPackage ? `Found ${deps} dependencies` : 'Not found'}`, body));
+  console.log(cardRow(`[✔] ${padRight('docker-compose.yml', 24)} ${hasCompose ? `Found ${services} services` : 'Not found'}`, body));
+  console.log(cardRow(`[✔] ${padRight('.env.example', 24)} ${hasEnv ? `Found ${keys} configuration keys` : 'Not found'}`, body));
+  console.log(cardRow('', body));
+  renderCardBottom(inner, `⏱ ${elapsed}ms`);
 }
 
 function printPlan(args: {
@@ -256,13 +293,14 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
     const skippedCount = result.results.filter((item) => item.status === 'skipped').length;
 
     const totalDuration = Date.now() - commandStart;
-    console.log(`${accent('╭── ✦ Environment Traced & Active ')}${secondary('─'.repeat(32))}${accent('╮')}`);
-    console.log(cardRow(`All ${executedCount} steps completed successfully.`));
-    console.log(cardRow(`Skipped steps: ${skippedCount}`));
+    const { inner, body } = getCardWidths();
+    renderCardTop('Environment Traced & Active', inner);
+    console.log(cardRow(`All ${executedCount} steps completed successfully.`, body));
+    console.log(cardRow(`Skipped steps: ${skippedCount}`, body));
     if (result.detectedDependencies && result.detectedDependencies.length > 0) {
-      console.log(cardRow(`Captured ${result.detectedDependencies.length} setup vectors.`));
+      console.log(cardRow(`Captured ${result.detectedDependencies.length} setup vectors.`, body));
     }
-    console.log(accent('╰') + secondary('─'.repeat(58)) + ` ${muted(`⏱ ${formatClock(totalDuration)}`)} ${accent('╯')}`);
+    renderCardBottom(inner, `⏱ ${formatClock(totalDuration)}`);
     console.log();
     return 0;
   } catch (error) {
