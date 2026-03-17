@@ -4,6 +4,8 @@ import { PromptBundle } from '../prompts.js';
 export interface IntelligenceRequest {
   projectRoot: string;
   prompt: PromptBundle;
+  model?: string;
+  apiKey?: string | null;
 }
 
 export interface IntelligenceProvider {

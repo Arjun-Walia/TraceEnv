@@ -6,14 +6,19 @@ import { LocalGgufProvider } from './ai-engine/local-gguf.js';
 import { RemoteApiProvider } from './ai-engine/remote-api.js';
 import { TraceEnvConfig } from '../config.js';
 import { validateInferredWorkflow } from './validation.js';
+import { scanManifests } from '../tooling/fs/manifest-scanner.js';
 
 export class IntelligenceEngine {
-  constructor(private readonly config?: Pick<TraceEnvConfig, 'mode' | 'provider'>) {}
+  constructor(private readonly config?: Pick<TraceEnvConfig, 'mode' | 'provider' | 'model' | 'apiKey'>) {}
 
   private createRequest(projectRoot: string): IntelligenceRequest {
+    const manifests = scanManifests(projectRoot);
+
     return {
       projectRoot,
-      prompt: buildPromptBundle('infer-workflow', { projectRoot }),
+      model: this.config?.model,
+      apiKey: this.config?.apiKey ?? null,
+      prompt: buildPromptBundle('infer-workflow', { projectRoot, manifests }),
     };
   }
 
@@ -42,14 +47,21 @@ export class IntelligenceEngine {
 
   async buildWorkflow(projectRoot: string): Promise<{ workflow: WorkflowSpec; source: 'file' | 'rule' | 'ai' }> {
     const request = this.createRequest(projectRoot);
+    const mode = this.config?.mode ?? 'local';
 
     for (const provider of this.resolveProviders()) {
-      const result = validateInferredWorkflow(await provider.inferWorkflow(request));
-      if (result && result.steps.length > 0) {
-        return {
-          workflow: result,
-          source: provider.id === 'rule' ? 'rule' : 'ai',
-        };
+      try {
+        const result = validateInferredWorkflow(await provider.inferWorkflow(request));
+        if (result && result.steps.length > 0) {
+          return {
+            workflow: result,
+            source: provider.id === 'rule' ? 'rule' : 'ai',
+          };
+        }
+      } catch (error) {
+        if (mode === 'api') {
+          throw error;
+        }
       }
     }
 

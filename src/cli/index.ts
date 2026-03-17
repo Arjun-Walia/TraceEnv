@@ -278,7 +278,20 @@ program
   .description('View or update TraceEnv configuration')
   .option('--shell <shell>', 'Set default shell (bash | zsh)')
   .option('--port <port>', 'Set daemon port')
-  .action((opts: { shell?: string; port?: string }) => {
+  .option('--mode <mode>', 'Set intelligence mode (local | hybrid | api)')
+  .option('--provider <provider>', 'Set intelligence provider (rule | local | openai | claude)')
+  .option('--model <model>', 'Set active model name')
+  .option('--api-key <key>', 'Set API key for the selected provider')
+  .option('--clear-api-key', 'Remove the stored API key')
+  .action((opts: {
+    shell?: string;
+    port?: string;
+    mode?: 'local' | 'hybrid' | 'api';
+    provider?: 'rule' | 'local' | 'openai' | 'claude';
+    model?: string;
+    apiKey?: string;
+    clearApiKey?: boolean;
+  }) => {
     const config = loadConfig();
     let changed = false;
 
@@ -288,6 +301,26 @@ program
     }
     if (opts.port) {
       config.daemonPort = parseInt(opts.port, 10);
+      changed = true;
+    }
+    if (opts.mode) {
+      config.mode = opts.mode;
+      changed = true;
+    }
+    if (opts.provider) {
+      config.provider = opts.provider;
+      changed = true;
+    }
+    if (opts.model) {
+      config.model = opts.model;
+      changed = true;
+    }
+    if (opts.apiKey) {
+      config.apiKey = opts.apiKey;
+      changed = true;
+    }
+    if (opts.clearApiKey) {
+      config.apiKey = null;
       changed = true;
     }
 

@@ -32,7 +32,10 @@ export function buildPromptBundle(
 
   const templatePrompt = [
     'Return JSON only.',
-    'Include commands, prerequisites, rationale, risks, and validation notes.',
+    'Use this schema:',
+    '{"version":"1.0.0","steps":[{"id":"step-1","command":"npm install","description":"Install dependencies"}],"prerequisites":["Node.js 18+"],"estimatedTime":"2-5 minutes"}',
+    'Only include commands that are directly useful for reconstructing the environment.',
+    'Do not include markdown fences or explanations outside JSON.',
     `Payload: ${JSON.stringify(payload)}`,
   ].join(' ');
 
