@@ -16,8 +16,10 @@ import {
 } from '../config';
 import { registerModelCommands } from './commands/model.js';
 import { accent, bold, muted, white } from '../ui/theme.js';
+import { renderCommandLogo } from '../ui/logo.js';
 
 const program = new Command();
+let hasRenderedLogo = false;
 
 program
   .name('trace')
@@ -43,6 +45,15 @@ program
     });
     process.exit(exitCode);
   });
+
+program.hook('preAction', () => {
+  if (hasRenderedLogo) {
+    return;
+  }
+
+  hasRenderedLogo = true;
+  renderCommandLogo();
+});
 
 // ─── traceenv daemon ──────────────────────────────────────────────────────────
 
