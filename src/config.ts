@@ -2,6 +2,9 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 
+export type IntelligenceMode = 'local' | 'hybrid' | 'api';
+export type IntelligenceProvider = 'rule' | 'local' | 'openai' | 'claude';
+
 export const CONFIG_DIR = path.join(os.homedir(), '.traceenv');
 export const DB_PATH = path.join(CONFIG_DIR, 'commands.db');
 export const CONFIG_PATH = path.join(CONFIG_DIR, 'config.json');
@@ -13,7 +16,10 @@ export const DAEMON_PID_FILE = path.join(CONFIG_DIR, 'daemon.pid');
 export interface TraceEnvConfig {
   shell: 'bash' | 'zsh';
   storage: string;
+  mode: IntelligenceMode;
   model: string;
+  provider: IntelligenceProvider;
+  apiKey: string | null;
   daemonPort: number;
   privacy: {
     telemetry: boolean;
@@ -24,7 +30,10 @@ export interface TraceEnvConfig {
 const DEFAULT_CONFIG: TraceEnvConfig = {
   shell: 'bash',
   storage: DB_PATH,
+  mode: 'local',
   model: 'qwen2.5-coder',
+  provider: 'local',
+  apiKey: null,
   daemonPort: DAEMON_PORT,
   privacy: {
     telemetry: false,

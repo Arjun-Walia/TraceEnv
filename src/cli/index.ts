@@ -13,15 +13,35 @@ import {
   DAEMON_PORT,
   DAEMON_PID_FILE,
   HOOKS_DIR,
-  MODELS_DIR,
 } from '../config';
+import { registerModelCommands } from './commands/model.js';
 
 const program = new Command();
 
 program
-  .name('traceenv')
-  .description('Local-first workspace synthesizer')
-  .version('0.1.0');
+  .name('trace')
+  .description('Reconstruct this repository environment')
+  .usage('[options] [command]')
+  .version('0.1.0')
+  .showHelpAfterError('\nRun "trace --help" for usage.')
+  .addHelpText(
+    'after',
+    '\nExamples:\n  trace\n  trace --dry-run\n  trace --skip 2 3\n  trace record --dir .\n  trace synthesize --dir .\n'
+  )
+  .option('-d, --dry-run', 'Preview setup without executing')
+  .option('-s, --skip <steps...>', 'Skip specific step numbers (e.g., --skip 2 3)')
+  .option('-y, --yes', 'Skip confirmation prompt')
+  .option('--undo', 'Rollback last setup execution')
+  .action(async (opts: { dryRun?: boolean; skip?: string[]; yes?: boolean; undo?: boolean }) => {
+    const { runTraceCommand } = await import('./trace.js');
+    const exitCode = await runTraceCommand({
+      dryRun: opts.dryRun,
+      skip: opts.skip,
+      yes: opts.yes,
+      undo: opts.undo,
+    });
+    process.exit(exitCode);
+  });
 
 // ─── traceenv daemon ──────────────────────────────────────────────────────────
 
@@ -33,7 +53,7 @@ daemonCmd
   .option('-p, --port <port>', 'Port to listen on', String(DAEMON_PORT))
   .action(async (opts: { port: string }) => {
     if (isDaemonRunning()) {
-      console.log('[traceenv] Daemon is already running.');
+      console.log('[trace] Daemon is already running.');
       return;
     }
 
@@ -54,9 +74,9 @@ daemonCmd
     await sleep(1200);
     try {
       await httpGet(`http://127.0.0.1:${port}/health`);
-      console.log(`[traceenv] Daemon started (PID: ${child.pid}, port: ${port})`);
+      console.log(`[trace] Daemon started (PID: ${child.pid}, port: ${port})`);
     } catch {
-      console.error('[traceenv] Daemon process spawned but HTTP health check failed.');
+      console.error('[trace] Daemon process spawned but HTTP health check failed.');
       console.error('           Check that the port is free and the build is up to date (npm run build).');
       process.exit(1);
     }
@@ -67,7 +87,7 @@ daemonCmd
   .description('Stop the TraceEnv daemon')
   .action(() => {
     if (!fs.existsSync(DAEMON_PID_FILE)) {
-      console.log('[traceenv] No daemon PID file found — daemon may not be running.');
+      console.log('[trace] No daemon PID file found — daemon may not be running.');
       return;
     }
 
@@ -75,14 +95,14 @@ daemonCmd
     try {
       process.kill(pid, 'SIGTERM');
       fs.unlinkSync(DAEMON_PID_FILE);
-      console.log(`[traceenv] Daemon stopped (PID: ${pid})`);
+      console.log(`[trace] Daemon stopped (PID: ${pid})`);
     } catch (err: unknown) {
       const e = err as NodeJS.ErrnoException;
       if (e.code === 'ESRCH') {
-        console.log('[traceenv] Daemon was not running.');
+        console.log('[trace] Daemon was not running.');
         fs.unlinkSync(DAEMON_PID_FILE);
       } else {
-        console.error('[traceenv] Failed to stop daemon:', e.message);
+        console.error('[trace] Failed to stop daemon:', e.message);
         process.exit(1);
       }
     }
@@ -94,15 +114,15 @@ daemonCmd
   .action(async () => {
     const config = loadConfig();
     if (!isDaemonRunning()) {
-      console.log('[traceenv] Daemon is NOT running.');
+      console.log('[trace] Daemon is NOT running.');
       return;
     }
     try {
       const raw = await httpGet(`http://127.0.0.1:${config.daemonPort}/health`);
       const info = JSON.parse(raw) as { status: string; pid: number };
-      console.log(`[traceenv] Daemon is running — PID: ${info.pid}, status: ${info.status}`);
+      console.log(`[trace] Daemon is running — PID: ${info.pid}, status: ${info.status}`);
     } catch {
-      console.log('[traceenv] Daemon process exists but HTTP endpoint is not responding.');
+      console.log('[trace] Daemon process exists but HTTP endpoint is not responding.');
     }
   });
 
@@ -162,62 +182,6 @@ program
     // Success
     console.log('\n' + SUCCESS_SCREEN);
     console.log(`📁 Output directory: ${outputDir}\n`);
-  });
-
-// ─── trace (automatic environment setup) ──────────────────────────────────────
-
-program
-  .command('trace')
-  .description('Automatically setup environment from .traceenv.json')
-  .option('-d, --dry-run', 'Preview setup without executing')
-  .option('-s, --skip <steps...>', 'Skip specific step numbers (e.g., --skip 2 3)')
-  .option('--undo', 'Rollback last setup execution')
-  .action(async (opts: { dryRun?: boolean; skip?: string[]; undo?: boolean }) => {
-    const { Tracer } = await import('../executor/tracer.js');
-    const terminalModule = await import('../ui/terminal.js');
-    const TerminalUI = terminalModule.TerminalUI;
-
-    const tracer = new Tracer(process.cwd());
-
-    // Auto-detect metadata (search up directory tree)
-    let metadata, projectDir;
-    try {
-      const result = tracer.autoLoadMetadata();
-      metadata = result.metadata;
-      projectDir = result.projectDir;
-    } catch (err) {
-      (new TerminalUI()).error(`${err instanceof Error ? err.message : String(err)}`);
-      process.exit(1);
-    }
-
-    if (!metadata) {
-      (new TerminalUI()).error('No .traceenv.json found');
-      console.log('\nTraceEnv could not find setup metadata in this directory or any parent directory.');
-      console.log('\nTo create setup metadata, run:');
-      console.log('  $ traceenv record --dir .\n');
-      console.log('Or manually create .traceenv.json in your project root.');
-      console.log('See: https://github.com/Arjun-Walia/TraceEnv#repository-setup-files\n');
-      process.exit(1);
-    }
-
-    // Parse skip steps
-    const skipSteps = opts.skip ? opts.skip.map((s) => parseInt(s, 10)) : [];
-
-    // Display setup plan
-    const confirmed = await tracer.displayPlan(metadata, projectDir);
-    if (!confirmed) {
-      console.log('Setup cancelled.\n');
-      process.exit(0);
-    }
-
-    // Execute setup
-    const success = await tracer.execute(metadata, {
-      dryRun: opts.dryRun ?? false,
-      skipSteps,
-      projectDir,
-    });
-
-    process.exit(success ? 0 : 1);
   });
 
 // ─── traceenv record ──────────────────────────────────────────────────────────
@@ -291,7 +255,7 @@ program
 
 // ─── traceenv install-hooks ───────────────────────────────────────────────────
 
-program
+const installHooksCmd = program
   .command('install-hooks')
   .description('Install shell hooks so TraceEnv can capture commands')
   .option('-s, --shell <shell>', 'Shell to configure: bash | zsh', 'bash')
@@ -302,7 +266,7 @@ program
     } else if (opts.shell === 'zsh') {
       installHook('zsh');
     } else {
-      console.error('[traceenv] Unsupported shell. Use --shell bash or --shell zsh.');
+      console.error('[trace] Unsupported shell. Use --shell bash or --shell zsh.');
       process.exit(1);
     }
   });
@@ -329,35 +293,16 @@ program
 
     if (changed) {
       saveConfig(config);
-      console.log('[traceenv] Configuration updated.');
+      console.log('[trace] Configuration updated.');
     }
 
     console.log('\nCurrent configuration:');
     console.log(JSON.stringify(config, null, 2));
   });
 
-// ─── traceenv model ───────────────────────────────────────────────────────────
+// ─── trace model ──────────────────────────────────────────────────────────────
 
-program
-  .command('model')
-  .description('Manage the local LLM model')
-  .command('info')
-  .description('Show model directory and currently loaded model')
-  .action(() => {
-    console.log(`Model directory: ${MODELS_DIR}`);
-    if (!fs.existsSync(MODELS_DIR)) {
-      console.log('No models directory found.');
-      return;
-    }
-    const models = fs.readdirSync(MODELS_DIR).filter((f) => f.endsWith('.gguf'));
-    if (models.length === 0) {
-      console.log('No GGUF models found.');
-      console.log('Download a Qwen2.5-Coder GGUF from https://huggingface.co and place it there.');
-    } else {
-      console.log('Available models:');
-      models.forEach((m) => console.log(`  ${m}`));
-    }
-  });
+registerModelCommands(program);
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -418,11 +363,11 @@ function installHook(shell: 'bash' | 'zsh'): void {
   if (!existing.includes('TraceEnv hook')) {
     fs.appendFileSync(rcFile, sourceLine);
     console.log(
-      `[traceenv] ${shell} hook installed.\n` +
-        `           Activate now: source ~/${shell === 'bash' ? '.bashrc' : '.zshrc'}`
+      `[trace] ${shell} hook installed.\n` +
+        `        Activate now: source ~/${shell === 'bash' ? '.bashrc' : '.zshrc'}`
     );
   } else {
-    console.log(`[traceenv] ${shell} hook already present in rc file.`);
+    console.log(`[trace] ${shell} hook already present in rc file.`);
   }
 }
 
@@ -651,29 +596,13 @@ function startDaemonSync(): void {
 // ─── main ──────────────────────────────────────────────────────────────────────
 
 (async () => {
-  // Run first-time demo if needed
-  await runFirstTimeDemo();
+  const argv = [...process.argv];
 
-  if (process.argv.length <= 2) {
-    // Smart: if we're in a project with .traceenv.json, suggest running trace
-    const { Tracer } = await import('../executor/tracer.js');
-    const metadataPath = Tracer.findMetadataFile(process.cwd());
-    
-    if (metadataPath) {
-      // We're in a project with setup metadata
-      console.log('TraceEnv detected a setup workflow.\n');
-      console.log('Run project setup:\n');
-      console.log('  $ trace\n');
-      console.log('Or for options:\n');
-      console.log('  $ trace --help\n');
-      process.exit(0);
-    }
-    
-    // Otherwise show help
-    program.outputHelp();
-    process.exit(0);
+  // Backward compatibility: allow `traceenv trace ...` but treat it as `trace ...`.
+  if (argv[2] === 'trace') {
+    argv.splice(2, 1);
   }
 
-  program.parse(process.argv);
+  await program.parseAsync(argv);
 })();
 
