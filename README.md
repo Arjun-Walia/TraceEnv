@@ -1,461 +1,139 @@
-﻿# TraceEnv
+<div align="center">
+  <img src="https://img.shields.io/badge/TraceEnv-Local--First%20Reproducibility-brightgreen?style=for-the-badge" alt="TraceEnv Logo">
+  <h1>TraceEnv</h1>
+  <p><b>Local-first CLI for universal, reproducible project setup.</b></p>
+  <p>
+    <a href="#"> <img src="https://img.shields.io/npm/v/traceenv.svg" alt="npm version"></a>
+    <a href="#"> <img src="https://img.shields.io/badge/node-%3E%3D%2018.0.0-blue.svg" alt="Node version"></a>
+    <a href="#"> <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
+    <a href="#"> <img src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-lightgrey.svg" alt="Platform Support"></a>
+  </p>
+  <p>Run <i>one</i> command in any repository and TraceEnv will intelligently detect, plan, and precisely execute the required setup steps.</p>
+</div>
 
-> **Clone. Run `trace`. Done.**
+<hr />
 
-TraceEnv automatically reconstructs your development environment from any cloned repository.
+## ⚡ What is TraceEnv?
 
-```bash
-git clone https://github.com/example/project
-cd project
+**TraceEnv** replaces brittle README instructions and outdated `setup.sh` scripts with an intelligent, deterministic CLI. By running `trace` in any project, TraceEnv automatically infers the required workflow (or reads a `.traceenv.json` manifest), shows you a safe execution plan, and runs it with built-in retries, failure classification, and recovery.
 
-trace
-```
+Whether it's `npm install`, `docker compose up`, or complex database migrations, TraceEnv handles it seamlessly.
 
-TraceEnv detects required setup steps, shows you the plan, and executes them automatically. **No manual setup commands required.**
+## ✨ Key Features
 
-**Everything runs locally.** No cloud, no telemetry, no data leaves your machine.
+- **🚀 Universal Execution:** Works across Node.js, Python, Docker, Go, Rust, and more.
+- **🧠 Intelligence Engine:** Fallback to LLM-powered inference (Local GGUF, OpenAI, Claude) if no setup manifest exists.
+- **🛡️ Safe & Predictable:** View a comprehensive plan, estimated time, and prerequisites before anything runs.
+- **🔄 Auto-Recovery:** Automatic retries and smart failure classification when steps break.
+- **🔒 Local-First Privacy:** Zero telemetry, zero forced cloud dependencies. Everything lives in `~/.traceenv`.
+- **🖥️ Beautiful Terminal UI:** Responsive, matrix-style bordered panels that scale to your terminal width.
 
----
+## 📦 Quick Start
 
-## Why TraceEnv?
+### Installation
 
-### The Problem
-
-Setting up a development environment is tedious:
-
-```bash
-# What developers currently do:
-cp .env.example .env
-npm install
-docker compose up -d
-npm run migrate
-npm run dev
-```
-
-**Every time.** For every project. For every developer.
-
-### The Solution
-
-With TraceEnv:
+Install globally via npm:
 
 ```bash
-trace
-```
-
-That's it. The entire setup runs automatically.
-
----
-
-## Installation (One Time)
-
-### 1. Install globally from source
-
-**From GitHub (or a zip file):**
-
-```bash
-# Clone the repo (or extract the zip)
-git clone https://github.com/Arjun-Walia/TraceEnv
+git clone https://github.com/Arjun-Walia/TraceEnv.git
 cd TraceEnv
-
-# Build and install globally
 npm install
 npm run build
 npm install -g .
+```
 
-# Verify installation
+Verify the installation:
+
+```bash
 trace --version
 ```
 
-> **Note:** `traceenv` package will be published to npm soon. After that: `npm install -g traceenv`
+### Basic Usage
 
-### 2. First-time setup (automatic)
+Navigate to any project repository and let TraceEnv do the heavy lifting:
 
 ```bash
+cd /path/to/any/project
 trace
 ```
 
-On first run, TraceEnv will:
+TraceEnv will detect the project type, build an execution plan, and ask for your confirmation before running.
 
-```
-TraceEnv Initial Setup
+## 🛠️ CLI Reference
 
-✓ Creating ~/.traceenv directory
-✓ Creating SQLite command database
-✓ Installing shell hooks (optional)
-✓ Starting background daemon
+TraceEnv comes with a powerful suite of subcommands:
 
-Setup complete.
-```
+| Command | Description | Options |
+| :--- | :--- | :--- |
+| `trace` | Detect and run the setup workflow for the current directory. | `--dry-run`, `--skip`, `--yes` |
+| `trace record` | Interactively capture setup steps or extract them from an existing `setup.sh`. | `--dir`, `--from` |
+| `trace synthesize` | Generate a `.traceenv.json` manifest from project context. | `--dir`, `--output` |
+| `trace daemon` | Manage the background agent for real-time state tracking. | `start`, `stop`, `status` |
+| `trace config` | Configure shell, network port, or intelligence provider. | `--shell`, `--mode`, `--provider` |
+| `trace model` | Manage AI models for setup inference (Local, OpenAI, Claude). | `list`, `use`, `info`, `auth` |
+| `trace install-hooks`| Install shell hooks to monitor environment state. | `--shell bash\|zsh` |
 
-**After this, you're ready.**
+> *Note: Both `trace` and `traceenv` are valid command aliases.*
 
----
+## ⚙️ How It Works (The `.traceenv.json` Manifest)
 
-## Core Workflow
+TraceEnv is powered by a standard JSON manifest. If a project lacks one, TraceEnv tries to infer it. When provided, it guarantees 100% deterministic setups.
 
-### For New Developers (Simplest)
-
-```bash
-# 1. Clone project
-git clone https://github.com/someone/project
-cd project
-
-# 2. Run trace
-trace
-
-# 3. See the setup plan (automatic)
-$ trace
-
-🚀 Setup Plan
-
-  ─ Prerequisites ────────────────────────────
-  • Node.js 18+
-  • Docker
-  • Docker Compose
-
-  ─ Workflow Steps ──────────────────────────────
-  [1] cp .env.example .env — Setup environment variables
-  [2] docker compose up -d — Start Docker services
-  [3] npm install — Install dependencies
-  [4] npm run migrate — Run database migrations
-  [5] npm run dev — Start development server
-
-  ⏱️  Estimated time: 5-10 minutes
-
-  Continue? (Y/n) y
-
-# 4. Automatic execution
-Running setup...
-
-  [1/5] ▶ cp .env.example .env
-            ✓ Success
-
-  [2/5] ▶ docker compose up -d
-            ✓ Containers started
-
-  [3/5] ▶ npm install
-            ✓ Dependencies installed
-
-  [4/5] ▶ npm run migrate
-            ✓ Database ready
-
-  [5/5] ▶ npm run dev
-            ✓ Server running on http://localhost:3000
-
-✅ Setup complete!
-
-  Executed: 5
-```
-
-**That's the entire workflow. Nothing else needed.**
-
----
-
-### For Project Creators (Setup Once)
-
-**1. Create `.traceenv.json` in your project root:**
+<details>
+<summary><b>View Example Manifest</b></summary>
 
 ```json
 {
   "version": "1.0.0",
   "workflow": [
-    {
-      "command": "cp .env.example .env",
-      "cwd": ".",
-      "description": "Setup environment variables"
-    },
-    {
-      "command": "docker compose up -d",
-      "cwd": ".",
-      "description": "Start Docker services"
-    },
-    {
-      "command": "npm install",
-      "cwd": ".",
-      "description": "Install dependencies"
-    },
-    {
-      "command": "npm run migrate",
-      "cwd": ".",
-      "description": "Run database migrations"
-    },
-    {
-      "command": "npm run dev",
-      "cwd": ".",
-      "description": "Start development server"
-    }
+    { "command": "cp .env.example .env", "cwd": ".", "description": "Prepare env" },
+    { "command": "docker compose up -d", "cwd": ".", "description": "Start services" },
+    { "command": "npm install", "cwd": ".", "description": "Install dependencies" },
+    { "command": "npm run migrate", "cwd": ".", "description": "Run migrations" }
   ],
-  "prerequisites": [
-    "Node.js 18+",
-    "Docker",
-    "Docker Compose"
-  ],
+  "prerequisites": ["Node.js 18+", "Docker", "Docker Compose"],
   "estimatedTime": "5-10 minutes"
 }
 ```
+</details>
 
-**2. Or generate it automatically:**
+## 📊 Feature Status Matrix
 
-```bash
-# From an existing setup.sh
-traceenv record --from setup.sh
+We are actively developing TraceEnv. Here is the current capability snapshot:
 
-# Interactively
-traceenv record --dir .
-```
+### ✅ Working
+* **Core Pipeline:** `trace` execution flow (planning, confirm prompt, `--dry-run`, `--skip`, `--yes`, retry/recovery).
+* **Manifests:** Loading and parsing `.traceenv.json` from local or parent directories.
+* **Recording:** `trace record` local workflows and existing bash scripts.
+* **Daemons:** `trace daemon` HTTP health tracking and event preview.
+* **Models/Config:** CLI configuration, model switching, and secure `auth` key storage locally.
+* **UI Engine:** Responsive, auto-scaling Unicode box-drawing layouts.
 
-**3. Commit to your repository:**
+### 🚧 Not Implemented Yet / Known Limitations
+* `trace --undo` rollback mechanisms are currently unsupported.
+* Shell hooks (`trace install-hooks`) are limited to `bash` and `zsh` (Fish/PowerShell coming soon).
+* Local GGUF models require manual environment setup before they can be leveraged.
+* Strict ASCII-only fallback modes (for extremely legacy terminals) are not yet available.
 
-```bash
-git add .traceenv.json
-git commit -m "chore: add environment setup metadata"
-git push
-```
+## 🛡️ Privacy & Security
 
-**Done.** Every new developer can now run `trace`.
+**Your environment is your business.**
+TraceEnv operates with a strict **Local-First** philosophy. 
+- 🚫 Zero telemetry collection.
+- 🚫 No forced cloud connectivity.
+- 💾 All credentials, models, and execution logs are securely stored locally in `~/.traceenv`.
 
----
+## 🤝 Contributing
 
-## Commands
-
-### `trace` — Setup environment (Main Command)
-
-Automatically detect and run the setup workflow.
-
-```bash
-trace                  # Run interactive setup
-trace --dry-run        # Preview without executing
-trace --skip 2 3       # Skip specific steps
-```
-
-**What it does:**
-- Automatically detects `.traceenv.json` (searches current dir and parents)
-- Shows setup plan with prerequisites and time estimate
-- Asks for confirmation (safety check)
-- Executes each step, showing progress
-- Stops on first error with helpful messages
-- Reports completion
-
----
-
-### `traceenv record` — Create setup metadata
-
-Generate `.traceenv.json` for your project.
+We welcome community contributions! Please read our [Contributing Guidelines](CONTRIBUTING.md) (coming soon) before submitting PRs.
 
 ```bash
-# From existing setup.sh
-traceenv record --from setup.sh
-
-# Interactive setup
-traceenv record --dir .
+# Local development setup
+npm install
+npm run build
+npm run dev
 ```
 
----
+## 📄 License
 
-### `traceenv daemon` — Manage background service
-
-```bash
-traceenv daemon start   # Start background service
-traceenv daemon status  # Check if running
-traceenv daemon stop    # Stop service
-```
-
-(Optional. Used for advanced command capture features.)
-
----
-
-### `traceenv install-hooks` — Enable auto-capture
-
-Install shell hooks to automatically record commands (optional).
-
-```bash
-traceenv install-hooks --shell bash
-```
-
----
-
-### `traceenv config` — Change settings
-
-```bash
-traceenv config              # View current config
-traceenv config --shell zsh  # Change shell
-```
-
----
-
-## Features
-
-### ✅ Automatic Detection
-
-TraceEnv automatically finds your project and loads setup metadata:
-
-```bash
-# From any directory inside your project
-cd my-project/src/utils
-trace  # Finds .traceenv.json in project root
-```
-
-### ✅ Safety First
-
-- **Shows commands before execution** — Review what will run
-- **Requires confirmation** — Press Y to proceed  
-- **Stops on error** — Doesn't continue on failure
-- **Clear error messages** — Shows exactly what went wrong
-
-### ✅ Flexible Skipping
-
-```bash
-trace --skip 2      # Skip step 2
-trace --skip 2 3 4  # Skip multiple steps
-```
-
-### ✅ Preview Mode
-
-```bash
-trace --dry-run     # Show what would execute (no execution)
-```
-
-### ✅ Works Everywhere
-
-After one-time installation, the `trace` command works in any project:
-
-```bash
-cd ~/projects/nodejs-app && trace
-cd ~/projects/python-service && trace
-cd ~/projects/go-microservice && trace
-```
-
-**All automatic.**
-
----
-
-## Requirements
-
-- **Node.js:** 18+
-- **npm:** 8+
-- **OS:** macOS, Linux, Windows (WSL recommended)
-
----
-
-## Tech Stack
-
-| Component | Technology |
-|-----------|-----------|
-| Runtime | Node.js 18+ |
-| Language | TypeScript |
-| Database | SQLite (Node built-in) |
-| CLI | Commander.js |
-| Server | Node http |
-
----
-
-## Files Created
-
-### `.traceenv.json`
-
-Stores your project's setup workflow. Commit this to version control.
-
-```json
-{
-  "version": "1.0.0",
-  "workflow": [
-    { "command": "cp .env.example .env", "cwd": "." },
-    { "command": "npm install", "cwd": "." },
-    { "command": "npm run dev", "cwd": "." }
-  ],
-  "prerequisites": ["Node.js 18+"],
-  "estimatedTime": "2-5 minutes"
-}
-```
-
-### `setup.sh` (Optional)
-
-Fallback executable script for manual setup.
-
-### `SETUP.md` (Optional)
-
-Human-readable setup guide.
-
----
-
-## FAQ
-
-**Q: Where does TraceEnv store data?**
-
-A: Everything is stored locally in `~/.traceenv/`. No cloud, no external servers.
-
----
-
-**Q: Can I modify `.traceenv.json` manually?**
-
-A: Yes. It's a regular JSON file. Edit freely.
-
----
-
-**Q: What if a setup step fails?**
-
-A: TraceEnv stops immediately and shows the error. Fix the issue and run `trace` again.
-
----
-
-**Q: Does this work on Windows?**
-
-A: Yes, on WSL (Windows Subsystem for Linux). Native Windows support coming soon.
-
----
-
-**Q: Can I use `trace` with monorepos?**
-
-A: Yes. Place `.traceenv.json` in each workspace root.
-
----
-
-**Q: How do I uninstall?**
-
-A: `npm uninstall -g traceenv`
-
----
-
-## Troubleshooting
-
-### `trace` command not found
-
-```bash
-npm install -g traceenv
-npm list -g traceenv
-```
-
-### No `.traceenv.json` found
-
-```bash
-traceenv record --dir .
-```
-
-### Command failed with permissions error
-
-```bash
-chmod +x setup.sh
-trace
-```
-
-### Docker not running
-
-Start Docker and run `trace` again.
-
----
-
-## Contributing
-
-Contributions welcome! Please open an issue or PR on [GitHub](https://github.com/Arjun-Walia/TraceEnv).
-
----
-
-## License
-
-MIT
-
----
-
-**TraceEnv** — Automatic environment reconstruction for developers.
-
-For more information: https://github.com/Arjun-Walia/TraceEnv
+TraceEnv is open-sourced software licensed under the **[MIT License](LICENSE)**.
