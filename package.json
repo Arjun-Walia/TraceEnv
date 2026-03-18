@@ -14,13 +14,15 @@
     "daemon:dev": "ts-node src/daemon/index.ts"
   },
   "dependencies": {
-    "commander": "^12.0.0"
+    "commander": "^12.0.0",
+    "prompts": "^2.4.2"
   },
   "optionalDependencies": {
     "node-llama-cpp": "^3.1.1"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
+    "@types/prompts": "^2.4.9",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },

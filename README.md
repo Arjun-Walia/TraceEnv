@@ -1,38 +1,93 @@
 <div align="center">
   <img src="https://img.shields.io/badge/TraceEnv-Local--First%20Reproducibility-brightgreen?style=for-the-badge" alt="TraceEnv Logo">
   <h1>TraceEnv</h1>
-  <p><b>Local-first CLI for universal, reproducible project setup.</b></p>
+  <p><b>Clone. Run <code>trace</code>. Your environment works.</b></p>
   <p>
     <a href="#"> <img src="https://img.shields.io/npm/v/traceenv.svg" alt="npm version"></a>
     <a href="#"> <img src="https://img.shields.io/badge/node-%3E%3D%2018.0.0-blue.svg" alt="Node version"></a>
     <a href="#"> <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
     <a href="#"> <img src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-lightgrey.svg" alt="Platform Support"></a>
   </p>
-  <p>Run <i>one</i> command in any repository and TraceEnv will intelligently detect, plan, and precisely execute the required setup steps.</p>
+  <p>Run one command inside a repository and TraceEnv figures out the setup, shows you the plan, and executes it safely.</p>
 </div>
 
 <hr />
 
 ## ⚡ What is TraceEnv?
 
-**TraceEnv** replaces brittle README instructions and outdated `setup.sh` scripts with an intelligent, deterministic CLI. By running `trace` in any project, TraceEnv automatically infers the required workflow (or reads a `.traceenv.json` manifest), shows you a safe execution plan, and runs it with built-in retries, failure classification, and recovery.
+> Clone. Run `trace`. Your environment works.
+
+**TraceEnv** replaces brittle setup docs and outdated `setup.sh` scripts with a CLI that gets a project running after you clone it. It detects the setup workflow, shows you exactly what will run, and executes it locally with confirmation, retries, and clear failure reporting.
 
 Whether it's `npm install`, `docker compose up`, or complex database migrations, TraceEnv handles it seamlessly.
 
+```bash
+git clone https://github.com/Arjun-Walia/TraceEnv.git
+cd TraceEnv
+trace
+```
+
+## Stop Writing Setup Instructions
+
+Your README is usually out of date.
+
+TraceEnv uses the setup steps that actually worked, so new developers do not have to guess which commands are still valid.
+
+## What You Get
+
+- No setup instructions to follow manually
+- No README guessing after clone
+- No hidden commands
+- A working environment faster on real projects
+- A reproducible path to deterministic setup when you want it
+
+## Works Even Without Configuration
+
+No `.traceenv.json`? TraceEnv still works.
+
+It will:
+
+- detect the project structure
+- infer likely setup steps
+- generate a setup plan
+- ask for confirmation
+- execute locally and stop on failure
+
 ## ✨ Key Features
 
-- **🚀 Universal Execution:** Works across Node.js, Python, Docker, Go, Rust, and more.
-- **🧠 Intelligence Engine:** Fallback to LLM-powered inference (Local GGUF, OpenAI, Claude) if no setup manifest exists.
-- **🛡️ Safe & Predictable:** View a comprehensive plan, estimated time, and prerequisites before anything runs.
-- **🔄 Auto-Recovery:** Automatic retries and smart failure classification when steps break.
-- **🔒 Local-First Privacy:** Zero telemetry, zero forced cloud dependencies. Everything lives in `~/.traceenv`.
-- **🖥️ Beautiful Terminal UI:** Responsive, matrix-style bordered panels that scale to your terminal width.
+- **Works on existing projects:** No rewrite, no migration, no special project template.
+- **Shows commands before execution:** You see the plan before anything runs.
+- **Handles common setup stacks:** Node.js, Python, Docker, Go, Rust, and mixed environments.
+- **Recovers better than shell scripts:** Retries, failure classification, and recovery hints are built in.
+- **Stays local-first:** No telemetry and no forced cloud dependency.
+- **Supports smarter inference when needed:** Local GGUF, OpenAI, and Claude providers can help infer workflows.
+
+## Demo
+
+```text
+$ trace
+
+TRACEENV ▸ workspace synthesizer
+
+Workspace Analysis
+- Project root detected
+- Dependencies inferred
+- Setup plan generated
+
+Planned steps
+1. cp .env.example .env
+2. docker compose up -d
+3. npm install
+4. npm run migrate
+
+Proceed? [y/N]
+```
 
 ## 📦 Quick Start
 
 ### Installation
 
-Install globally via npm:
+Install the package globally:
 
 ```bash
 git clone https://github.com/Arjun-Walia/TraceEnv.git
@@ -42,7 +97,9 @@ npm run build
 npm install -g .
 ```
 
-Verify the installation:
+The npm package is `traceenv`. The command you run is `trace`.
+
+Verify the install:
 
 ```bash
 trace --version
@@ -59,6 +116,25 @@ trace
 
 TraceEnv will detect the project type, build an execution plan, and ask for your confirmation before running.
 
+## Why Not Docker / Dev Containers / Nix?
+
+- No container overhead for projects that do not need containers
+- No requirement to define a new environment system before you can use it
+- Works with existing repositories immediately
+- Lets teams adopt deterministic setup gradually instead of all at once
+
+TraceEnv adapts to how the project already works instead of forcing everything into a new workflow.
+
+## Safety Guarantees
+
+- Shows commands before execution
+- Requires confirmation unless you explicitly skip it
+- Never hides steps behind background magic
+- Stops on failure and reports what broke
+- Executes locally on your machine
+
+You stay in control of what runs.
+
 ## 🛠️ CLI Reference
 
 TraceEnv comes with a powerful suite of subcommands:
@@ -73,11 +149,11 @@ TraceEnv comes with a powerful suite of subcommands:
 | `trace model` | Manage AI models for setup inference (Local, OpenAI, Claude). | `list`, `use`, `info`, `auth` |
 | `trace install-hooks`| Install shell hooks to monitor environment state. | `--shell bash\|zsh` |
 
-> *Note: Both `trace` and `traceenv` are valid command aliases.*
+## Optional: Add `.traceenv.json` for Perfect Reproducibility
 
-## ⚙️ How It Works (The `.traceenv.json` Manifest)
+TraceEnv works without `.traceenv.json`.
 
-TraceEnv is powered by a standard JSON manifest. If a project lacks one, TraceEnv tries to infer it. When provided, it guarantees 100% deterministic setups.
+If you want guaranteed, deterministic setup for every developer on every machine, add a manifest and commit it to the repository.
 
 <details>
 <summary><b>View Example Manifest</b></summary>
@@ -96,6 +172,13 @@ TraceEnv is powered by a standard JSON manifest. If a project lacks one, TraceEn
 }
 ```
 </details>
+
+You can create one by recording or synthesizing a workflow:
+
+```bash
+trace record --dir .
+trace synthesize --dir .
+```
 
 ## 📊 Feature Status Matrix
 

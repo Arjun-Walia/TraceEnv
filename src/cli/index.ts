@@ -5,7 +5,6 @@ import * as fs from 'fs';
 import * as http from 'http';
 import * as child_process from 'child_process';
 import * as os from 'os';
-
 import {
   loadConfig,
   saveConfig,
@@ -13,9 +12,12 @@ import {
   DAEMON_PORT,
   DAEMON_PID_FILE,
   HOOKS_DIR,
+  MODELS_DIR,
+  TraceEnvConfig,
 } from '../config';
 import { registerModelCommands } from './commands/model.js';
-import { accent, bold, muted, white } from '../ui/theme.js';
+import { getProviderDescriptor, listProviderDescriptors } from '../intelligence/registry.js';
+import { accent, bold, muted, white, padRight, secondary, SYM } from '../ui/theme.js';
 import { renderCommandLogo } from '../ui/logo.js';
 
 const program = new Command();
@@ -324,7 +326,7 @@ program
   .option('--model <model>', 'Set active model name')
   .option('--api-key <key>', 'Set API key for the selected provider')
   .option('--clear-api-key', 'Remove the stored API key')
-  .action((opts: {
+  .action(async (opts: {
     shell?: string;
     port?: string;
     mode?: 'local' | 'hybrid' | 'api';
@@ -333,63 +335,299 @@ program
     apiKey?: string;
     clearApiKey?: boolean;
   }) => {
-    const config = loadConfig();
-    let changed = false;
+    const { default: prompts } = await import('prompts');
 
-    if (opts.shell) {
-      config.shell = opts.shell as 'bash' | 'zsh';
-      changed = true;
-    }
-    if (opts.port) {
-      config.daemonPort = parseInt(opts.port, 10);
-      changed = true;
-    }
-    if (opts.mode) {
-      config.mode = opts.mode;
-      changed = true;
-    }
-    if (opts.provider) {
-      config.provider = opts.provider;
-      config.apiKey =
-        opts.provider === 'openai'
-          ? config.apiKeys?.openai ?? null
-          : opts.provider === 'claude'
-            ? config.apiKeys?.claude ?? null
-            : null;
-      changed = true;
-    }
-    if (opts.model) {
-      config.model = opts.model;
-      changed = true;
-    }
-    if (opts.apiKey) {
-      config.apiKey = opts.apiKey;
-      if (config.provider === 'openai' || config.provider === 'claude') {
-        config.apiKeys = {
-          ...(config.apiKeys ?? {}),
-          [config.provider]: opts.apiKey,
-        };
+    // If CLI options provided, use legacy mode
+    if (Object.values(opts).some((value) => value !== undefined)) {
+      const config = loadConfig();
+      let changed = false;
+
+      if (opts.shell) {
+        config.shell = opts.shell as 'bash' | 'zsh';
+        changed = true;
       }
-      changed = true;
-    }
-    if (opts.clearApiKey) {
-      if (config.provider === 'openai' || config.provider === 'claude') {
-        config.apiKeys = {
-          ...(config.apiKeys ?? {}),
-        };
-        delete config.apiKeys[config.provider];
+      if (opts.port) {
+        config.daemonPort = parseInt(opts.port, 10);
+        changed = true;
       }
-      config.apiKey = null;
-      changed = true;
+      if (opts.mode) {
+        config.mode = opts.mode;
+        changed = true;
+      }
+      if (opts.provider) {
+        config.provider = opts.provider;
+        config.apiKey =
+          opts.provider === 'openai'
+            ? config.apiKeys?.openai ?? null
+            : opts.provider === 'claude'
+              ? config.apiKeys?.claude ?? null
+              : null;
+        changed = true;
+      }
+      if (opts.model) {
+        config.model = opts.model;
+        changed = true;
+      }
+      if (opts.apiKey) {
+        config.apiKey = opts.apiKey;
+        if (config.provider === 'openai' || config.provider === 'claude') {
+          config.apiKeys = {
+            ...(config.apiKeys ?? {}),
+            [config.provider]: opts.apiKey,
+          };
+        }
+        changed = true;
+      }
+      if (opts.clearApiKey) {
+        if (config.provider === 'openai' || config.provider === 'claude') {
+          config.apiKeys = {
+            ...(config.apiKeys ?? {}),
+          };
+          delete config.apiKeys[config.provider];
+        }
+        config.apiKey = null;
+        changed = true;
+      }
+
+      if (changed) {
+        saveConfig(config);
+        console.log('[trace] Configuration updated.');
+      }
+
+      console.log('\nCurrent configuration:');
+      console.log(JSON.stringify(config, null, 2));
+      return;
     }
 
-    if (changed) {
-      saveConfig(config);
-      console.log('[trace] Configuration updated.');
+    // Interactive mode
+    console.clear();
+    const originalConfig = loadConfig();
+    const config: TraceEnvConfig = {
+      ...originalConfig,
+      apiKeys: {
+        ...(originalConfig.apiKeys ?? {}),
+      },
+    };
+
+    const promptOptions = {
+      onCancel: () => true,
+    };
+
+    const syncModelForProvider = (): void => {
+      const provider = getProviderDescriptor(config.provider);
+      const availableModels = new Set(provider.models);
+
+      if (provider.id === 'local' && fs.existsSync(MODELS_DIR)) {
+        fs.readdirSync(MODELS_DIR)
+          .filter((file) => file.endsWith('.gguf'))
+          .map((file) => file.replace(/\.gguf$/i, ''))
+          .forEach((model) => availableModels.add(model));
+      }
+
+      const preferredModel = Array.from(availableModels)[0] ?? config.model;
+      if (!availableModels.has(config.model)) {
+        config.model = preferredModel;
+      }
+    };
+
+    const getModelChoices = (): Array<{ title: string; value: string }> => {
+      const provider = getProviderDescriptor(config.provider);
+      const modelSet = new Set(provider.models);
+
+      if (provider.id === 'local' && fs.existsSync(MODELS_DIR)) {
+        fs.readdirSync(MODELS_DIR)
+          .filter((file) => file.endsWith('.gguf'))
+          .map((file) => file.replace(/\.gguf$/i, ''))
+          .forEach((model) => modelSet.add(model));
+      }
+
+      return Array.from(modelSet).map((model) => ({
+        title: model,
+        value: model,
+      }));
+    };
+
+    const displayConfig = () => ({
+      shell: config.shell,
+      daemonPort: config.daemonPort,
+      mode: config.mode,
+      provider: config.provider,
+      model: config.model,
+      apiKeySet: config.apiKey ? '✓ SET' : '✗ NOT SET',
+    });
+
+    let editing = true;
+    while (editing) {
+      console.log('\n' + bold('TraceEnv Configuration'));
+      console.log(muted('─'.repeat(50)) + '\n');
+      
+      const current = displayConfig();
+      Object.entries(current).forEach(([key, value]) => {
+        const label = key.replace(/([A-Z])/g, ' $1').trim();
+        console.log(`  ${padRight(label + ':', 18)} ${accent(String(value))}`);
+      });
+
+      console.log('\n' + muted('─'.repeat(50)) + '\n');
+
+      const choice = await prompts({
+        type: 'select',
+        name: 'setting',
+        message: 'Select setting to modify',
+        choices: [
+          { title: `${accent('>_')}  ${white('Shell')}`,              value: 'shell' },
+          { title: `${accent(':#')}  ${white('Daemon Port')}`,        value: 'port' },
+          { title: `${accent('◉ ')}  ${white('Intelligence Mode')}`,  value: 'mode' },
+          { title: `${accent('◎ ')}  ${white('Provider')}`,           value: 'provider' },
+          { title: `${accent('▣ ')}  ${white('Model')}`,              value: 'model' },
+          { title: `${accent('/*')}  ${white('API Key')}`,            value: 'apiKey' },
+          { title: `${accent('✓ ')}  ${accent('Save and exit')}`,     value: 'save' },
+          { title: `${secondary('× ')}  ${muted('Discard and exit')}`, value: 'discard' },
+        ],
+      }, promptOptions);
+
+      if (!choice.setting || choice.setting === 'discard') {
+        console.clear();
+        console.log('\n' + muted('Configuration unchanged.') + '\n');
+        return;
+      }
+
+      if (choice.setting === 'save') {
+        editing = false;
+        break;
+      }
+
+      if (choice.setting === 'shell') {
+        const res = await prompts({
+          type: 'select',
+          name: 'shell',
+          message: 'Select default shell',
+          choices: [
+            { title: 'bash', value: 'bash' },
+            { title: 'zsh', value: 'zsh' },
+          ],
+          initial: config.shell === 'bash' ? 0 : 1,
+        }, promptOptions);
+        if (res.shell) config.shell = res.shell;
+      } else if (choice.setting === 'port') {
+        const res = await prompts({
+          type: 'text',
+          name: 'port',
+          message: 'Daemon port',
+          initial: String(config.daemonPort),
+          validate: (value: string) => {
+            const trimmed = value.trim();
+            if (!/^\d+$/.test(trimmed)) {
+              return 'Port must contain digits only';
+            }
+
+            const parsed = parseInt(trimmed, 10);
+            return parsed > 0 && parsed < 65536 ? true : 'Port must be between 1 and 65535';
+          },
+        }, promptOptions);
+        if (res.port) config.daemonPort = parseInt(res.port.trim(), 10);
+      } else if (choice.setting === 'mode') {
+        const res = await prompts({
+          type: 'select',
+          name: 'mode',
+          message: 'Intelligence mode',
+          choices: [
+            { title: 'local', value: 'local' },
+            { title: 'hybrid', value: 'hybrid' },
+            { title: 'api', value: 'api' },
+          ],
+          initial: config.mode === 'local' ? 0 : config.mode === 'hybrid' ? 1 : 2,
+        }, promptOptions);
+        if (res.mode) config.mode = res.mode;
+      } else if (choice.setting === 'provider') {
+        const providers = listProviderDescriptors();
+        const res = await prompts({
+          type: 'select',
+          name: 'provider',
+          message: 'Intelligence provider',
+          choices: providers.map((provider) => ({
+            title: `${provider.id}  ${muted(`(${provider.label})`)}`,
+            value: provider.id,
+          })),
+          initial: providers.findIndex((provider) => provider.id === config.provider),
+        }, promptOptions);
+        if (res.provider) {
+          config.provider = res.provider;
+          config.mode = getProviderDescriptor(res.provider).mode;
+          config.apiKey =
+            res.provider === 'openai'
+              ? config.apiKeys?.openai ?? null
+              : res.provider === 'claude'
+                ? config.apiKeys?.claude ?? null
+                : null;
+          syncModelForProvider();
+        }
+      } else if (choice.setting === 'model') {
+        const modelChoices = getModelChoices();
+        const res = await prompts({
+          type: 'select',
+          name: 'model',
+          message: `Select model for ${config.provider}`,
+          choices: modelChoices,
+          initial: Math.max(0, modelChoices.findIndex((choiceItem) => choiceItem.value === config.model)),
+        }, promptOptions);
+        if (res.model) config.model = res.model;
+      } else if (choice.setting === 'apiKey') {
+        const apiKeyChoice = await prompts({
+          type: 'select',
+          name: 'action',
+          message: 'API Key action',
+          choices: [
+            { title: config.apiKey ? 'Update key' : 'Set key', value: 'set' },
+            ...(config.apiKey ? [{ title: '❌ Clear', value: 'clear' }] : []),
+            { title: 'Back', value: 'back' },
+          ],
+        }, promptOptions);
+
+        if (!apiKeyChoice.action || apiKeyChoice.action === 'back') {
+          console.clear();
+          continue;
+        }
+
+        if (apiKeyChoice.action === 'set') {
+          const res = await prompts({
+            type: 'password',
+            name: 'key',
+            message: `Enter API key for ${accent(config.provider)}`,
+          }, promptOptions);
+          if (res.key) {
+            config.apiKey = res.key;
+            if (config.provider === 'openai' || config.provider === 'claude') {
+              config.apiKeys = {
+                ...(config.apiKeys ?? {}),
+                [config.provider]: res.key,
+              };
+            }
+          }
+        } else if (apiKeyChoice.action === 'clear') {
+          if (config.provider === 'openai' || config.provider === 'claude') {
+            config.apiKeys = {
+              ...(config.apiKeys ?? {}),
+            };
+            delete config.apiKeys[config.provider];
+          }
+          config.apiKey = null;
+        }
+      }
+
+      console.clear();
     }
 
-    console.log('\nCurrent configuration:');
-    console.log(JSON.stringify(config, null, 2));
+    syncModelForProvider();
+    saveConfig(config);
+    console.log('\n' + bold('✓ Configuration saved'));
+    console.log(muted('─'.repeat(50)) + '\n');
+    
+    const final = displayConfig();
+    Object.entries(final).forEach(([key, value]) => {
+      const label = key.replace(/([A-Z])/g, ' $1').trim();
+      console.log(`  ${padRight(label + ':', 18)} ${accent(String(value))}`);
+    });
+    console.log();
   });
 
 // ─── trace model ──────────────────────────────────────────────────────────────
