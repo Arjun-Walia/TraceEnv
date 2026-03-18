@@ -64,24 +64,7 @@ It will:
 
 ## Demo
 
-```text
-$ trace
-
-TRACEENV ▸ workspace synthesizer
-
-Workspace Analysis
-- Project root detected
-- Dependencies inferred
-- Setup plan generated
-
-Planned steps
-1. cp .env.example .env
-2. docker compose up -d
-3. npm install
-4. npm run migrate
-
-Proceed? [y/N]
-```
+![TraceEnv demo](./demo.gif)
 
 ## 📦 Quick Start
 
