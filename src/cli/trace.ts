@@ -121,10 +121,10 @@ function countEnvKeys(projectRoot: string): number {
 async function renderWorkspaceCard(projectRoot: string): Promise<void> {
   const scanStart = Date.now();
   if (process.stdout.isTTY) {
-    for (let i = 0; i < BRAILLE_SPINNER.length * 2; i++) {
+    for (let i = 0; i < 4; i++) {
       const frame = BRAILLE_SPINNER[i % BRAILLE_SPINNER.length];
       process.stdout.write(`\r${accent(frame)} ${white('Scanning directory depth [2]...')}`);
-      await new Promise((resolve) => setTimeout(resolve, 65));
+      await new Promise((resolve) => setTimeout(resolve, 45));
     }
     clearLine();
   }
@@ -141,9 +141,9 @@ async function renderWorkspaceCard(projectRoot: string): Promise<void> {
 
   renderCardTop('TraceEnv: Workspace Analysis', inner);
   console.log(cardRow('', body));
-  console.log(cardRow(`[✔] ${padRight('package.json', 24)} ${hasPackage ? `Found ${deps} dependencies` : 'Not found'}`, body));
-  console.log(cardRow(`[✔] ${padRight('docker-compose.yml', 24)} ${hasCompose ? `Found ${services} services` : 'Not found'}`, body));
-  console.log(cardRow(`[✔] ${padRight('.env.example', 24)} ${hasEnv ? `Found ${keys} configuration keys` : 'Not found'}`, body));
+  console.log(cardRow(`[${hasPackage ? '✓' : '·'}] ${padRight('package.json', 24)} ${hasPackage ? `Detected ${deps} dependencies` : 'Optional - not detected'}`, body));
+  console.log(cardRow(`[${hasCompose ? '✓' : '·'}] ${padRight('docker-compose.yml', 24)} ${hasCompose ? `Detected ${services} services` : 'Optional - not detected'}`, body));
+  console.log(cardRow(`[${hasEnv ? '✓' : '·'}] ${padRight('.env.example', 24)} ${hasEnv ? `Detected ${keys} config keys` : 'Optional - not detected'}`, body));
   console.log(cardRow('', body));
   renderCardBottom(inner, `⏱ ${elapsed}ms`);
 }
@@ -184,6 +184,8 @@ function printPlan(args: {
   if (args.estimatedTime) {
     console.log(`\n${muted(`  Estimated total: ${args.estimatedTime}`)}`);
   }
+
+  console.log(`\n${muted('  Safety: review commands before run, confirmation required, and stop on failure by default.')}`);
 
   console.log(`\n${secondary('─'.repeat(66))}`);
 }
@@ -296,7 +298,7 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
 
     const totalDuration = Date.now() - commandStart;
     const { inner, body } = getCardWidths();
-    renderCardTop('Environment Traced & Active', inner);
+    renderCardTop('Environment Ready', inner);
     if (failedCount === 0) {
       console.log(cardRow(`All ${executedCount} steps completed successfully.`, body));
     } else {
@@ -313,7 +315,8 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
   } catch (error) {
     if (error instanceof ValidationError && error.message.includes('No executable steps were found')) {
       ui.error('No setup workflow found.');
-      console.log('Create one with: trace record --dir .\n');
+      console.log('Quick start: trace record --dir .');
+      console.log('Or generate from history: trace synthesize --dir .\n');
       return 1;
     }
 
