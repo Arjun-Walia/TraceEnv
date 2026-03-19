@@ -3,9 +3,18 @@
   "version": "1.0.0",
   "description": "Local-first workspace synthesizer that generates reproducible setup documentation from real terminal workflows",
   "main": "dist/cli/index.js",
-  "bin": {
-    "trace": "./dist/cli/index.js"
+  "publishConfig": {
+    "access": "public"
   },
+  "bin": {
+    "trace": "dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "hooks",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "dev": "ts-node src/cli/index.ts",
@@ -28,6 +37,12 @@
   "engines": {
     "node": ">=18.0.0"
   },
-  "keywords": ["devtools", "documentation", "shell", "local-ai", "workflow"],
+  "keywords": [
+    "devtools",
+    "documentation",
+    "shell",
+    "local-ai",
+    "workflow"
+  ],
   "license": "MIT"
 }
