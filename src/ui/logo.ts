@@ -61,41 +61,21 @@ export function renderBigLogo(): void {
 // ─── Compact command-line header ─────────────────────────────────────────────
 
 export function renderCommandLogo(): void {
-  const terminalWidth = process.stdout.columns ?? 80;
-  const outerWidth = Math.max(44, Math.min(84, terminalWidth - 1));
-  const INNER = outerWidth - 2;
-
-  // ── top rail ──
-  const topLeft  = accentBright('▛') + accent('▀'.repeat(INNER)) + accentBright('▜');
-
-  // ── title line ──
-  const headerCore =
-    ' ' + bold(accentBright('TRACEENV')) +
-    ' ' + secondary('▸▸') + ' ' +
-    white('workspace synthesizer');
-
-  const suffixCandidates = [
-    ' ' + secondary('·') + ' ' + muted('local-first · safe · reproducible') + ' ',
-    ' ' + secondary('·') + ' ' + muted('local-first · safe') + ' ',
-    ' ' + secondary('·') + ' ' + muted('local-first') + ' ',
-    ' ',
-  ];
-
-  const suffix = suffixCandidates.find((candidate) => visibleLength(headerCore + candidate) <= INNER) ?? ' ';
-  const titleBody = fitToWidth(headerCore + suffix, INNER);
-  const titleLine =
-    accentBright('▌') +
-    titleBody +
-    ' '.repeat(Math.max(0, INNER - visibleLength(titleBody))) +
-    accentBright('▐');
-
-  // ── bottom rail ──
-  const botLeft  = accentBright('▙') + accent('▄'.repeat(INNER)) + accentBright('▟');
-
   console.log();
-  console.log(topLeft);
-  console.log(titleLine);
-  console.log(botLeft);
+
+  // Always show the actual brand mark in command mode; no boxed fallback banner.
+  const terminalWidth = process.stdout.columns ?? 120;
+  const rawRows = [R1, R2, R3, R4, R5, R6, R7, R8];
+  const trimmedRows = rawRows.map((row) => row.trimEnd());
+  const maxLogoWidth = Math.max(...trimmedRows.map((row) => visibleLength(row)));
+  const shouldClip = terminalWidth > 8 && maxLogoWidth + 2 > terminalWidth;
+
+  for (const row of trimmedRows) {
+    const displayRow = shouldClip ? fitToWidth(row, terminalWidth - 2) : row;
+    console.log('  ' + white(displayRow));
+  }
+
+  console.log('  ' + muted('local-first workspace synthesizer'));
   console.log();
 }
 
