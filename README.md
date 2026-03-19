@@ -3,7 +3,7 @@
   <h1>TraceEnv</h1>
   <p><b>Clone. Run <code>trace</code>. Your environment works.</b></p>
   <p>
-    <a href="#"> <img src="https://img.shields.io/npm/v/traceenv.svg" alt="npm version"></a>
+    <a href="#"> <img src="https://img.shields.io/npm/v/%40arjunwalia%2Ftraceenv.svg" alt="npm version"></a>
     <a href="#"> <img src="https://img.shields.io/badge/node-%3E%3D%2018.0.0-blue.svg" alt="Node version"></a>
     <a href="#"> <img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License: MIT"></a>
     <a href="#"> <img src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-lightgrey.svg" alt="Platform Support"></a>
@@ -18,11 +18,7 @@
 Use this path first.
 
 ```bash
-git clone https://github.com/Arjun-Walia/TraceEnv.git
-cd TraceEnv
-npm install
-npm run build
-npm install -g .
+npm install -g @arjunwalia/traceenv
 trace
 ```
 
@@ -92,11 +88,7 @@ It will:
 Install the package globally:
 
 ```bash
-git clone https://github.com/Arjun-Walia/TraceEnv.git
-cd TraceEnv
-npm install
-npm run build
-npm install -g .
+npm install -g @arjunwalia/traceenv
 ```
 
 The npm package is `@arjunwalia/traceenv`. The command you run is `trace`.
