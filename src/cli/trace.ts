@@ -290,12 +290,19 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
     }
 
     const executedCount = result.results.filter((item) => item.status === 'success' || item.status === 'dry-run').length;
+    const failedCount = result.results.filter((item) => item.status === 'failed').length;
+    const totalCount = result.results.length;
     const skippedCount = result.results.filter((item) => item.status === 'skipped').length;
 
     const totalDuration = Date.now() - commandStart;
     const { inner, body } = getCardWidths();
     renderCardTop('Environment Traced & Active', inner);
-    console.log(cardRow(`All ${executedCount} steps completed successfully.`, body));
+    if (failedCount === 0) {
+      console.log(cardRow(`All ${executedCount} steps completed successfully.`, body));
+    } else {
+      console.log(cardRow(`Completed ${executedCount} of ${totalCount} steps.`, body));
+      console.log(cardRow(`Failures tolerated: ${failedCount}`, body));
+    }
     console.log(cardRow(`Skipped steps: ${skippedCount}`, body));
     if (result.detectedDependencies && result.detectedDependencies.length > 0) {
       console.log(cardRow(`Captured ${result.detectedDependencies.length} setup vectors.`, body));
