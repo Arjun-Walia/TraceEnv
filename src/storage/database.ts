@@ -83,9 +83,12 @@ export function getLatestSession(): CommandRecord[] {
 export function getAllSessions(): string[] {
   const rows = getDb()
     .prepare(
-      `SELECT DISTINCT session_id FROM commands ORDER BY MIN(timestamp) DESC`
+      `SELECT session_id, MAX(timestamp) AS last_seen
+       FROM commands
+       GROUP BY session_id
+       ORDER BY last_seen DESC`
     )
-    .all() as { session_id: string }[];
+    .all() as { session_id: string; last_seen: number }[];
   return rows.map((r) => r.session_id);
 }
 

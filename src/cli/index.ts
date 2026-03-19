@@ -72,7 +72,18 @@ daemonCmd
     }
 
     ensureConfigDir();
-    const port = parseInt(opts.port, 10);
+    const port = parsePort(opts.port);
+    if (port === null) {
+      console.error('[trace] Invalid port. Use a number between 1 and 65535.');
+      process.exit(1);
+    }
+
+    const config = loadConfig();
+    if (config.daemonPort !== port) {
+      config.daemonPort = port;
+      saveConfig(config);
+    }
+
     const daemonEntry = resolveDaemonPath();
 
     const child = child_process.spawn(process.execPath, [daemonEntry], {
@@ -347,7 +358,12 @@ program
         changed = true;
       }
       if (opts.port) {
-        config.daemonPort = parseInt(opts.port, 10);
+        const parsedPort = parsePort(opts.port);
+        if (parsedPort === null) {
+          console.error('[trace] Invalid port. Use a number between 1 and 65535.');
+          process.exit(1);
+        }
+        config.daemonPort = parsedPort;
         changed = true;
       }
       if (opts.mode) {
@@ -678,6 +694,14 @@ function sleep(ms: number): Promise<void> {
 
 function padKey(key: string): string {
   return `${key}${' '.repeat(Math.max(0, 12 - key.length))}`;
+}
+
+function parsePort(inputPort: string): number | null {
+  const trimmed = inputPort.trim();
+  if (!/^\d+$/.test(trimmed)) return null;
+  const parsed = parseInt(trimmed, 10);
+  if (Number.isNaN(parsed) || parsed < 1 || parsed > 65535) return null;
+  return parsed;
 }
 
 function installHook(shell: 'bash' | 'zsh'): void {
