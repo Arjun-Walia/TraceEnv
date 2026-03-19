@@ -27,7 +27,7 @@ program
   .name('trace')
   .description('Reconstruct this repository environment')
   .usage('[options] [command]')
-  .version('0.1.0')
+  .version('1.0.0')
   .showHelpAfterError('\nRun "trace --help" for usage.')
   .addHelpText(
     'after',

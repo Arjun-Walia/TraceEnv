@@ -1,11 +1,10 @@
 {
   "name": "traceenv",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Local-first workspace synthesizer that generates reproducible setup documentation from real terminal workflows",
   "main": "dist/cli/index.js",
   "bin": {
-    "trace": "dist/cli/index.js",
-    "traceenv": "dist/cli/index.js"
+    "trace": "./dist/cli/index.js"
   },
   "scripts": {
     "build": "tsc",
