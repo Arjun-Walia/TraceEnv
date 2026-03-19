@@ -99,7 +99,7 @@ npm run build
 npm install -g .
 ```
 
-The npm package is `traceenv`. The command you run is `trace`.
+The npm package is `@arjunwalia/traceenv`. The command you run is `trace`.
 
 Verify the install:
 

@@ -1,5 +1,5 @@
 {
-  "name": "traceenv",
+  "name": "@arjunwalia/traceenv",
   "version": "1.0.0",
   "description": "Local-first workspace synthesizer that generates reproducible setup documentation from real terminal workflows",
   "main": "dist/cli/index.js",
