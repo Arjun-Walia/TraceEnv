@@ -85,7 +85,18 @@ export function registerModelCommands(program: { command(name: string): any }): 
     .description('Select rule-based, local, or API-backed intelligence')
     .action((target: string) => {
       const config = configRepo.load();
-      const selection = resolveModelSelection(target);
+      let selection: Pick<TraceEnvConfig, 'mode' | 'provider' | 'model'>;
+
+      try {
+        selection = resolveModelSelection(target);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`\n[trace] ${message}`);
+        console.error('[trace] Try one of: rule, local, openai, claude, hybrid, api\n');
+        process.exitCode = 1;
+        return;
+      }
+
       const updated: TraceEnvConfig = {
         ...config,
         mode: selection.mode,

@@ -18,7 +18,7 @@ import {
 import { registerModelCommands } from './commands/model.js';
 import { getProviderDescriptor, listProviderDescriptors } from '../intelligence/registry.js';
 import { accent, bold, muted, white, padRight, secondary, SYM } from '../ui/theme.js';
-import { renderCommandLogo } from '../ui/logo.js';
+import { renderBigLogo, renderCommandLogo } from '../ui/logo.js';
 
 const program = new Command();
 let hasRenderedLogo = false;
@@ -48,7 +48,11 @@ program
     process.exit(exitCode);
   });
 
-program.hook('preAction', () => {
+program.hook('preAction', (_thisCommand, actionCommand) => {
+  if (actionCommand?.name?.() === 'logo') {
+    return;
+  }
+
   if (hasRenderedLogo) {
     return;
   }
@@ -58,6 +62,13 @@ program.hook('preAction', () => {
 });
 
 // ─── traceenv daemon ──────────────────────────────────────────────────────────
+
+program
+  .command('logo')
+  .description('Render the full TraceEnv logo')
+  .action(() => {
+    renderBigLogo();
+  });
 
 const daemonCmd = program.command('daemon').description('Manage the TraceEnv daemon');
 
