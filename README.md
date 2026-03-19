@@ -13,6 +13,25 @@
 
 <hr />
 
+## Clone -> trace -> done
+
+Use this path first.
+
+```bash
+git clone https://github.com/Arjun-Walia/TraceEnv.git
+cd TraceEnv
+npm install
+npm run build
+npm install -g .
+trace
+```
+
+What you get:
+
+- Instant setup plan before anything runs
+- Confirmation prompt before execution
+- Clear success or failure output with recovery hints
+
 ## ⚡ What is TraceEnv?
 
 > Clone. Run `trace`. Your environment works.
