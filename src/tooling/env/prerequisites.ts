@@ -14,6 +14,22 @@ export function checkPrerequisites(
       present.push(item);
       continue;
     }
+    if (lower.includes('python') && (env.tools.python || env.tools.pip)) {
+      present.push(item);
+      continue;
+    }
+    if (lower.includes('venv') && env.tools.python) {
+      present.push(item);
+      continue;
+    }
+    if (lower.includes('pip') && env.tools.pip) {
+      present.push(item);
+      continue;
+    }
+    if (lower.includes('go') && env.tools.go) {
+      present.push(item);
+      continue;
+    }
     if (lower.includes('docker') && env.tools.docker) {
       present.push(item);
       continue;

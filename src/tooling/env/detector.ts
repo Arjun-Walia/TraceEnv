@@ -20,6 +20,9 @@ export function detectEnvironment(projectRoot: string): EnvironmentSnapshot {
     tools: {
       node: safeVersion('node', ['--version']),
       npm: safeVersion('npm', ['--version']),
+      python: safeVersion('python', ['--version']) ?? safeVersion('python3', ['--version']),
+      pip: safeVersion('pip', ['--version']) ?? safeVersion('pip3', ['--version']),
+      go: safeVersion('go', ['version']),
       docker: safeVersion('docker', ['--version']),
       git: safeVersion('git', ['--version']),
     },

@@ -1,15 +1,21 @@
 import { WorkflowSpec } from '../../domain/types.js';
 import { scanManifests } from '../../tooling/fs/manifest-scanner.js';
-import { inferStepsFromManifests } from './rules.js';
+import { createDefaultProviderRegistry } from '../inference/default-registry.js';
+import { InferenceOrchestrator } from '../inference/orchestrator.js';
+import { buildInferenceContext } from '../inference/signals.js';
 
 export function inferWorkflow(projectRoot: string): WorkflowSpec {
   const manifests = scanManifests(projectRoot);
-  const steps = inferStepsFromManifests(manifests);
+  const context = buildInferenceContext(projectRoot, manifests);
+  const registry = createDefaultProviderRegistry();
+  const orchestrator = new InferenceOrchestrator(registry);
+  const inference = orchestrator.infer(context);
+  const steps = inference.steps;
 
   return {
     version: '1.0.0',
     steps,
-    prerequisites: manifests.includes('package.json') ? ['Node.js 18+'] : [],
+    prerequisites: inference.prerequisites,
     estimatedTime: steps.length > 3 ? '5-10 minutes' : '2-5 minutes',
   };
 }
