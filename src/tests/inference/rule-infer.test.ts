@@ -47,3 +47,18 @@ test('inferWorkflow keeps env and docker setup behavior for node-style projects'
     assert.deepEqual(commands, ['cp .env.example .env', 'npm install', 'docker compose up -d']);
   });
 });
+
+test('inferWorkflow exposes provider decisions and step provenance diagnostics', () => {
+  withTempProject(['package.json', 'requirements.txt'], (projectRoot) => {
+    const workflow = inferWorkflow(projectRoot);
+
+    assert.equal(workflow.inference?.mode, 'full');
+    assert.ok((workflow.inference?.providerDecisions?.length ?? 0) > 0);
+    assert.ok((workflow.inference?.mergeDecisions?.length ?? 0) > 0);
+    assert.ok((workflow.inference?.stepProvenance?.length ?? 0) > 0);
+
+    const npmProvenance = workflow.inference?.stepProvenance?.find((item) => item.command === 'npm install');
+    assert.ok(npmProvenance);
+    assert.equal(typeof npmProvenance?.providerId, 'string');
+  });
+});

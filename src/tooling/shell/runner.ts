@@ -11,6 +11,8 @@ export interface CommandRunResult {
   stdout: string;
   stderr: string;
   durationMs: number;
+  timedOut: boolean;
+  signal?: NodeJS.Signals | null;
 }
 
 function transformForPlatform(command: string): { transformed: string; note?: string } {
@@ -48,6 +50,7 @@ export function runCommand(input: CommandRunInput): Promise<CommandRunResult> {
     const started = Date.now();
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
 
     const proc = child_process.spawn(shell, [shellArg, normalized.command], {
       cwd: input.cwd,
@@ -63,21 +66,35 @@ export function runCommand(input: CommandRunInput): Promise<CommandRunResult> {
       stderr += chunk.toString();
     });
 
-    proc.on('close', (code) => {
-      resolve({
-        exitCode: code ?? 1,
-        stdout,
-        stderr,
-        durationMs: Date.now() - started,
-      });
-    });
-
     proc.on('error', (error) => {
       resolve({
         exitCode: 1,
         stdout,
         stderr: error.message,
         durationMs: Date.now() - started,
+        timedOut,
+        signal: null,
+      });
+    });
+
+    proc.on('spawn', () => {
+      if (input.timeoutMs > 0) {
+        setTimeout(() => {
+          if (!proc.killed) {
+            timedOut = true;
+          }
+        }, input.timeoutMs + 10);
+      }
+    });
+
+    proc.on('close', (code, signal) => {
+      resolve({
+        exitCode: code ?? 1,
+        stdout,
+        stderr,
+        durationMs: Date.now() - started,
+        timedOut,
+        signal,
       });
     });
   });

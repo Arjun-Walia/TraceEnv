@@ -24,6 +24,13 @@ export interface InferenceContribution {
   rationale: string[];
 }
 
+export interface ProviderDecision {
+  providerId: string;
+  applied: boolean;
+  reason: string;
+  producedSteps: number;
+}
+
 export interface ProviderContributionCandidate {
   providerId: string;
   providerPriority: number;
@@ -59,5 +66,18 @@ export interface InferenceResult {
   steps: WorkflowStep[];
   prerequisites: string[];
   contributions: InferenceContribution[];
+  providerDecisions: ProviderDecision[];
   decisions: MergeDecision[];
+  stepProvenance: StepProvenance[];
+}
+
+export interface StepProvenance {
+  stepKey: string;
+  stepId?: string;
+  command: string;
+  cwd: string;
+  providerId: string;
+  confidence: number;
+  providerPriority: number;
+  reason: string;
 }
