@@ -28,6 +28,17 @@ export interface WorkflowSpec {
   estimatedTime?: string;
   validationRules?: ValidationRule[];
   rollbackRules?: RollbackRule[];
+  inference?: InferenceDiagnostics;
+}
+
+export interface InferenceDiagnostics {
+  mode: 'full' | 'partial';
+  confidence: number;
+  signals: string[];
+  missingPieces?: string[];
+  suggestedCommands?: string[];
+  manifestHints?: string[];
+  recommendation?: string;
 }
 
 export interface EnvironmentSnapshot {

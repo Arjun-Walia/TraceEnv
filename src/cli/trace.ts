@@ -155,8 +155,22 @@ function printPlan(args: {
   prerequisites?: string[];
   dependencies?: Array<{ name: string; kind: string }>;
   estimatedTime?: string;
+  inference?: {
+    mode: 'full' | 'partial';
+    confidence: number;
+    signals: string[];
+    missingPieces?: string[];
+    suggestedCommands?: string[];
+    manifestHints?: string[];
+    recommendation?: string;
+  };
 }): void {
   console.log(`\n${accent('⚡ Execution Plan Generated')}`);
+
+  if (args.inference) {
+    const modeLabel = args.inference.mode === 'partial' ? 'Partial Inference Mode' : 'Full Inference Mode';
+    console.log(`${muted(`  ${modeLabel} • Confidence ${args.inference.confidence}/100`)}`);
+  }
 
   console.log(`\n${bold(white('  PREREQUISITES'))}`);
 
@@ -180,6 +194,28 @@ function printPlan(args: {
     const right = muted(estimateFor(step.command));
     console.log(`${left} ${right}`);
   });
+
+  if (args.inference?.mode === 'partial') {
+    if (args.inference.manifestHints && args.inference.manifestHints.length > 0) {
+      console.log(`\n${bold(white('  MANIFEST HINTS'))}`);
+      args.inference.manifestHints.forEach((hint) => console.log(`  ${muted(`• ${hint}`)}`));
+    }
+
+    if (args.inference.suggestedCommands && args.inference.suggestedCommands.length > 0) {
+      console.log(`\n${bold(white('  SUGGESTED COMMANDS'))}`);
+      args.inference.suggestedCommands.forEach((command) => console.log(`  ${muted(`• ${command}`)}`));
+    }
+
+    if (args.inference.missingPieces && args.inference.missingPieces.length > 0) {
+      console.log(`\n${bold(white('  MISSING PIECES'))}`);
+      args.inference.missingPieces.forEach((item) => console.log(`  ${muted(`• ${item}`)}`));
+    }
+
+    if (args.inference.recommendation) {
+      console.log(`\n${bold(white('  RECOMMENDATION'))}`);
+      console.log(`  ${muted(args.inference.recommendation)}`);
+    }
+  }
 
   if (args.estimatedTime) {
     console.log(`\n${muted(`  Estimated total: ${args.estimatedTime}`)}`);
@@ -253,8 +289,8 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
         autoApprove: options.yes ?? false,
       },
       {
-        onPlan: async ({ source, projectRoot, plan, prerequisites, dependencies, estimatedTime, autoApprove }) => {
-          printPlan({ source, projectRoot, plan, prerequisites, dependencies, estimatedTime });
+        onPlan: async ({ source, projectRoot, plan, prerequisites, dependencies, estimatedTime, autoApprove, inference }) => {
+          printPlan({ source, projectRoot, plan, prerequisites, dependencies, estimatedTime, inference });
           if (autoApprove) {
             return true;
           }
@@ -314,9 +350,11 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
     return 0;
   } catch (error) {
     if (error instanceof ValidationError && error.message.includes('No executable steps were found')) {
-      ui.error('No setup workflow found.');
-      console.log('Quick start: trace record --dir .');
-      console.log('Or generate from history: trace synthesize --dir .\n');
+      ui.error('Partial inference available, but no executable workflow could be validated yet.');
+      console.log('Suggested next steps:');
+      console.log('  • trace record --dir .');
+      console.log('  • trace synthesize --dir .');
+      console.log('  • create .traceenv.json with explicit setup commands\n');
       return 1;
     }
 

@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "npm run build && node --test dist/tests/inference/*.test.js",
+    "test": "npm run build && node --test dist/tests/inference/*.test.js dist/tests/env/*.test.js",
     "dev": "ts-node src/cli/index.ts",
     "start": "node dist/cli/index.js",
     "daemon:dev": "ts-node src/daemon/index.ts"

@@ -7,6 +7,7 @@ import { RemoteApiProvider } from './ai-engine/remote-api.js';
 import { TraceEnvConfig } from '../config.js';
 import { validateInferredWorkflow } from './validation.js';
 import { scanManifests } from '../tooling/fs/manifest-scanner.js';
+import { createPartialWorkflow } from './fallback.js';
 
 export class IntelligenceEngine {
   constructor(private readonly config?: Pick<TraceEnvConfig, 'mode' | 'provider' | 'model' | 'apiKey' | 'apiKeys'>) {}
@@ -53,13 +54,22 @@ export class IntelligenceEngine {
   async buildWorkflow(projectRoot: string): Promise<{ workflow: WorkflowSpec; source: 'file' | 'rule' | 'ai' }> {
     const request = this.createRequest(projectRoot);
     const mode = this.config?.mode ?? 'local';
+    const manifests = scanManifests(projectRoot);
 
     for (const provider of this.resolveProviders()) {
       try {
         const result = validateInferredWorkflow(await provider.inferWorkflow(request));
         if (result && result.steps.length > 0) {
+          const confidence = provider.id === 'rule' ? 78 : 88;
           return {
-            workflow: result,
+            workflow: {
+              ...result,
+              inference: {
+                mode: 'full',
+                confidence,
+                signals: manifests,
+              },
+            },
             source: provider.id === 'rule' ? 'rule' : 'ai',
           };
         }
@@ -70,6 +80,44 @@ export class IntelligenceEngine {
       }
     }
 
-    return { workflow: await new RuleBasedProvider().inferWorkflow(request) as WorkflowSpec, source: 'rule' };
+    const fallback = validateInferredWorkflow(await new RuleBasedProvider().inferWorkflow(request));
+    if (fallback && fallback.steps.length > 0) {
+      return {
+        workflow: {
+          ...fallback,
+          inference: {
+            mode: 'full',
+            confidence: 72,
+            signals: manifests,
+          },
+        },
+        source: 'rule',
+      };
+    }
+
+    if (manifests.length > 0) {
+      return {
+        workflow: createPartialWorkflow(projectRoot, manifests),
+        source: 'rule',
+      };
+    }
+
+    return {
+      workflow: {
+        version: '1.0.0',
+        steps: [],
+        prerequisites: [],
+        inference: {
+          mode: 'partial',
+          confidence: 0,
+          signals: [],
+          missingPieces: ['No repository signals were detected for inference.'],
+          suggestedCommands: [],
+          manifestHints: [],
+          recommendation: 'Create .traceenv.json or run trace record to capture a workflow.',
+        },
+      },
+      source: 'rule',
+    };
   }
 }
