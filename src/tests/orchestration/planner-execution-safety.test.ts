@@ -22,7 +22,7 @@ test('planner propagates execution safety defaults and retry policy', () => {
 
   assert.equal(step.retryPolicy.maxAttempts, 3);
   assert.equal(step.retryPolicy.strategy, 'none');
-  assert.equal(step.idempotent, false);
+  assert.equal(step.idempotent, true);
   assert.deepEqual(step.sideEffects, ['unknown']);
   assert.equal(step.timeoutMs, 12345);
 });

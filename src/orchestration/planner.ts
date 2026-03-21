@@ -104,7 +104,7 @@ export class Planner {
           strategy: DEFAULT_EXECUTION_SAFETY_POLICY.defaultRetryPolicy.strategy,
           backoffMs: DEFAULT_EXECUTION_SAFETY_POLICY.defaultRetryPolicy.backoffMs,
         },
-        idempotent: step.idempotent ?? false,
+        idempotent: step.idempotent ?? true,
         sideEffects: step.sideEffects ?? ['unknown'],
         continueOnError: step.continueOnError ?? false,
       })),
