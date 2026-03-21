@@ -26,12 +26,12 @@ test('inferWorkflow includes node, python, and go steps when manifests are prese
 
     assert.deepEqual(commands, [
       'python -m venv .venv',
-      'go mod download',
       'npm install',
       'python -m pip install -r requirements.txt',
+      'go mod download',
       'go build ./...',
-      'go test ./...',
       'python -m pytest',
+      'go test ./...',
       'python main.py',
     ]);
 

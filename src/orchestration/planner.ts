@@ -1,6 +1,16 @@
 import { ExecutionPlan, RiskLevel, WorkflowSpec } from '../domain/types.js';
 import { DEFAULT_EXECUTION_POLICY } from '../domain/policies.js';
 
+const PHASE_PRIORITY: Record<string, number> = {
+  prepare: 0,
+  deps: 1,
+  services: 2,
+  build: 3,
+  test: 4,
+  run: 5,
+  install: 1,
+};
+
 function stepPriority(command: string): number {
   const normalized = command.toLowerCase();
 
@@ -37,6 +47,20 @@ function orderWorkflowSteps(workflow: WorkflowSpec): WorkflowSpec['steps'] {
   return workflow.steps
     .map((step, index) => ({ step, index }))
     .sort((left, right) => {
+      const leftPhase = typeof (left.step as { phase?: string }).phase === 'string'
+        ? (left.step as { phase?: string }).phase
+        : undefined;
+      const rightPhase = typeof (right.step as { phase?: string }).phase === 'string'
+        ? (right.step as { phase?: string }).phase
+        : undefined;
+
+      if (leftPhase && rightPhase) {
+        const phaseDiff = (PHASE_PRIORITY[leftPhase] ?? 99) - (PHASE_PRIORITY[rightPhase] ?? 99);
+        if (phaseDiff !== 0) {
+          return phaseDiff;
+        }
+      }
+
       const priorityDiff = stepPriority(left.step.command) - stepPriority(right.step.command);
       if (priorityDiff !== 0) {
         return priorityDiff;
