@@ -8,6 +8,7 @@ const KNOWN_MANIFESTS = [
   'yarn.lock',
   'requirements.txt',
   'pyproject.toml',
+  'Pipfile',
   'go.mod',
   'Cargo.toml',
   'docker-compose.yml',
