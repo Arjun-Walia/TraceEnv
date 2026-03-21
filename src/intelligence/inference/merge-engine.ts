@@ -3,6 +3,7 @@ import {
   MergeDecision,
   ProviderContributionCandidate,
   StepPhase,
+  StepProvenance,
   WorkflowStep,
 } from './contracts.js';
 
@@ -138,11 +139,32 @@ export class MergeEngine {
       return left.insertionOrder - right.insertionOrder;
     });
 
+    const stepProvenance: StepProvenance[] = selected.map((item) => ({
+      stepKey: `${item.step.cwd}::${item.step.command}`,
+      stepId: item.step.id,
+      command: item.step.command,
+      cwd: item.step.cwd,
+      providerId: item.providerId,
+      confidence: item.confidence,
+      providerPriority: item.providerPriority,
+      reason: `Selected from ${item.providerId} (priority=${item.providerPriority}, confidence=${item.confidence}).`,
+    }));
+
     return {
       steps: selected.map((item) => item.step),
       prerequisites,
       contributions: candidates.map((candidate) => candidate.contribution),
+      providerDecisions: candidates.map((candidate) => ({
+        providerId: candidate.providerId,
+        applied: candidate.contribution.steps.length > 0 || (candidate.contribution.prerequisites?.length ?? 0) > 0,
+        reason:
+          candidate.contribution.steps.length > 0 || (candidate.contribution.prerequisites?.length ?? 0) > 0
+            ? 'Provider produced contribution.'
+            : 'Provider matched but produced no executable contribution.',
+        producedSteps: candidate.contribution.steps.length,
+      })),
       decisions,
+      stepProvenance,
     };
   }
 }

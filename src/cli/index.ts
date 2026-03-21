@@ -36,13 +36,17 @@ program
   .option('-d, --dry-run', 'Preview setup without executing')
   .option('-s, --skip <steps...>', 'Skip specific step numbers (e.g., --skip 2 3)')
   .option('-y, --yes', 'Skip confirmation prompt')
+  .option('--debug', 'Show structured debug reasoning and event stream')
+  .option('--resume', 'Resume from the last successful step of a matching failed run')
   .option('--undo', 'Rollback last setup execution')
-  .action(async (opts: { dryRun?: boolean; skip?: string[]; yes?: boolean; undo?: boolean }) => {
+  .action(async (opts: { dryRun?: boolean; skip?: string[]; yes?: boolean; debug?: boolean; resume?: boolean; undo?: boolean }) => {
     const { runTraceCommand } = await import('./trace.js');
     const exitCode = await runTraceCommand({
       dryRun: opts.dryRun,
       skip: opts.skip,
       yes: opts.yes,
+      debug: opts.debug,
+      resume: opts.resume,
       undo: opts.undo,
     });
     process.exit(exitCode);

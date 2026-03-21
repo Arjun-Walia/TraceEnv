@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { detectProjectRoot } from '../tooling/fs/project-detector.js';
 import { accent, bold, BRAILLE_SPINNER, clearLine, muted, padRight, secondary, white } from '../ui/theme.js';
+import { TraceEvent } from '../observability/events.js';
 
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 
@@ -163,7 +164,30 @@ function printPlan(args: {
     suggestedCommands?: string[];
     manifestHints?: string[];
     recommendation?: string;
+    providerDecisions?: Array<{
+      providerId: string;
+      applied: boolean;
+      reason: string;
+      producedSteps: number;
+    }>;
+    mergeDecisions?: Array<{
+      type: string;
+      key: string;
+      providerId: string;
+      reason: string;
+    }>;
+    stepProvenance?: Array<{
+      stepKey: string;
+      stepId?: string;
+      command: string;
+      cwd: string;
+      providerId: string;
+      confidence: number;
+      providerPriority: number;
+      reason: string;
+    }>;
   };
+  debug?: boolean;
 }): void {
   console.log(`\n${accent('⚡ Execution Plan Generated')}`);
 
@@ -217,6 +241,37 @@ function printPlan(args: {
     }
   }
 
+  if (args.debug && args.inference) {
+    console.log(`\n${bold(white('  REASONING'))}`);
+
+    if (args.inference.providerDecisions && args.inference.providerDecisions.length > 0) {
+      console.log(`  ${muted('Providers:')}`);
+      args.inference.providerDecisions.forEach((decision) => {
+        const marker = decision.applied ? '✓' : '·';
+        console.log(`  ${muted(`  ${marker} ${decision.providerId}: ${decision.reason} (steps=${decision.producedSteps})`)}`);
+      });
+    }
+
+    if (args.inference.stepProvenance && args.inference.stepProvenance.length > 0) {
+      console.log(`  ${muted('Step provenance:')}`);
+      args.inference.stepProvenance.forEach((item) => {
+        console.log(
+          `  ${muted(`  • ${item.command} -> ${item.providerId} (p=${item.providerPriority}, c=${Math.round(item.confidence * 100)}%)`)}`
+        );
+      });
+    }
+
+    if (args.inference.mergeDecisions && args.inference.mergeDecisions.length > 0) {
+      console.log(`  ${muted('Merge decisions:')}`);
+      args.inference.mergeDecisions.slice(0, 10).forEach((decision) => {
+        console.log(`  ${muted(`  • ${decision.type} [${decision.providerId}] ${decision.reason}`)}`);
+      });
+      if (args.inference.mergeDecisions.length > 10) {
+        console.log(`  ${muted(`  • ... ${args.inference.mergeDecisions.length - 10} more decisions`)}`);
+      }
+    }
+  }
+
   if (args.estimatedTime) {
     console.log(`\n${muted(`  Estimated total: ${args.estimatedTime}`)}`);
   }
@@ -262,9 +317,10 @@ function printStepResult(index: number, total: number, result: StepResult): void
   }
 }
 
-export async function runTraceCommand(options: { dryRun?: boolean; skip?: string[]; yes?: boolean; undo?: boolean }): Promise<number> {
+export async function runTraceCommand(options: { dryRun?: boolean; skip?: string[]; yes?: boolean; debug?: boolean; resume?: boolean; undo?: boolean }): Promise<number> {
   const ui = new TerminalUI();
   const pipeline = new TracePipeline();
+  const debugEvents: TraceEvent[] = [];
 
   if (options.undo) {
     ui.error('Undo is not implemented yet.');
@@ -287,10 +343,12 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
         dryRun: options.dryRun ?? false,
         skipSteps,
         autoApprove: options.yes ?? false,
+        debug: options.debug ?? false,
+        resume: options.resume ?? false,
       },
       {
         onPlan: async ({ source, projectRoot, plan, prerequisites, dependencies, estimatedTime, autoApprove, inference }) => {
-          printPlan({ source, projectRoot, plan, prerequisites, dependencies, estimatedTime, inference });
+          printPlan({ source, projectRoot, plan, prerequisites, dependencies, estimatedTime, inference, debug: options.debug });
           if (autoApprove) {
             return true;
           }
@@ -309,6 +367,15 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
         onStepResult: (index, total, stepResult) => {
           printStepResult(index, total, stepResult);
         },
+        onEvent: (event) => {
+          if (!options.debug) {
+            return;
+          }
+          if (debugEvents.length >= 80) {
+            debugEvents.shift();
+          }
+          debugEvents.push(event);
+        },
       }
     );
 
@@ -323,6 +390,9 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
         console.log('\nRecovery suggestions');
         result.recoverySuggestions.forEach((suggestion) => console.log(`  - ${suggestion}`));
         console.log();
+      }
+      if (options.debug && debugEvents.length > 0) {
+        printDebugEventStream(debugEvents);
       }
       return 1;
     }
@@ -346,6 +416,9 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
       console.log(cardRow(`Captured ${result.detectedDependencies.length} setup vectors.`, body));
     }
     renderCardBottom(inner, `⏱ ${formatClock(totalDuration)}`);
+    if (options.debug && debugEvents.length > 0) {
+      printDebugEventStream(debugEvents);
+    }
     console.log();
     return 0;
   } catch (error) {
@@ -360,5 +433,19 @@ export async function runTraceCommand(options: { dryRun?: boolean; skip?: string
 
     ui.error(error instanceof Error ? error.message : String(error));
     return 1;
+  }
+}
+
+function printDebugEventStream(events: TraceEvent[]): void {
+  console.log(`\n${bold(white('  DEBUG EVENT STREAM'))}`);
+  const tail = events.slice(-20);
+  for (const event of tail) {
+    const stamp = new Date(event.at).toTimeString().slice(0, 8);
+    const payload = event.payload ? JSON.stringify(event.payload) : '{}';
+    const clipped = payload.length > 140 ? `${payload.slice(0, 137)}...` : payload;
+    console.log(`  ${muted(`• ${stamp} ${event.name} ${clipped}`)}`);
+  }
+  if (events.length > tail.length) {
+    console.log(`  ${muted(`• ... ${events.length - tail.length} earlier events omitted`)}`);
   }
 }

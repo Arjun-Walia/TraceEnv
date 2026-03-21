@@ -1,5 +1,5 @@
 import { ExecutionPlan, RiskLevel, WorkflowSpec } from '../domain/types.js';
-import { DEFAULT_EXECUTION_POLICY } from '../domain/policies.js';
+import { DEFAULT_EXECUTION_POLICY, DEFAULT_EXECUTION_SAFETY_POLICY } from '../domain/policies.js';
 
 const PHASE_PRIORITY: Record<string, number> = {
   prepare: 0,
@@ -99,6 +99,13 @@ export class Planner {
         description: step.description,
         timeoutMs: Math.min(step.timeoutMs ?? 5 * 60 * 1000, DEFAULT_EXECUTION_POLICY.maxTimeoutMs),
         retryCount: step.retryCount ?? 0,
+        retryPolicy: step.retryPolicy ?? {
+          maxAttempts: (step.retryCount ?? 0) + 1,
+          strategy: DEFAULT_EXECUTION_SAFETY_POLICY.defaultRetryPolicy.strategy,
+          backoffMs: DEFAULT_EXECUTION_SAFETY_POLICY.defaultRetryPolicy.backoffMs,
+        },
+        idempotent: step.idempotent ?? false,
+        sideEffects: step.sideEffects ?? ['unknown'],
         continueOnError: step.continueOnError ?? false,
       })),
     };
