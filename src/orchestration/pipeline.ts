@@ -15,6 +15,7 @@ export interface PipelineHooks {
     estimatedTime?: string;
     prerequisites?: string[];
     dependencies?: TraceRunResult['detectedDependencies'];
+    inference?: NonNullable<import('../domain/types.js').WorkflowSpec['inference']>;
     autoApprove: boolean;
   }) => Promise<boolean>;
   onStepStart?: (index: number, total: number, command: string) => void;
@@ -48,6 +49,7 @@ export class TracePipeline {
         estimatedTime: workflow.estimatedTime,
         prerequisites: workflow.prerequisites,
         dependencies: analysis.dependencies,
+        inference: workflow.inference,
         autoApprove: options.autoApprove ?? false,
       });
       if (!approved) {

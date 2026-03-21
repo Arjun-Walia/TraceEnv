@@ -1,45 +1,46 @@
 import { EnvironmentSnapshot } from '../../domain/types.js';
+import {
+  CapabilityResolutionResult,
+  detectToolCapabilities,
+  parseRequirements,
+  resolveRequirements,
+  ToolCapability,
+} from './capabilities.js';
+
+function capabilitiesFromEnvironment(env: EnvironmentSnapshot): ToolCapability[] {
+  const detected = detectToolCapabilities();
+
+  return detected.map((capability) => {
+    const value = env.tools[capability.tool];
+    if (value === undefined) {
+      return capability;
+    }
+
+    return {
+      ...capability,
+      available: value !== null,
+      version: value && value !== 'available' ? value : capability.version,
+    };
+  });
+}
+
+export function resolvePrerequisites(
+  declared: string[] | undefined,
+  env: EnvironmentSnapshot
+): CapabilityResolutionResult {
+  const requirements = parseRequirements(declared);
+  const capabilities = capabilitiesFromEnvironment(env);
+  return resolveRequirements(requirements, capabilities);
+}
 
 export function checkPrerequisites(
   declared: string[] | undefined,
   env: EnvironmentSnapshot
 ): { missing: string[]; present: string[] } {
-  const required = declared ?? [];
-  const missing: string[] = [];
-  const present: string[] = [];
+  const result = resolvePrerequisites(declared, env);
 
-  for (const item of required) {
-    const lower = item.toLowerCase();
-    if (lower.includes('node') && env.tools.node) {
-      present.push(item);
-      continue;
-    }
-    if (lower.includes('python') && (env.tools.python || env.tools.pip)) {
-      present.push(item);
-      continue;
-    }
-    if (lower.includes('venv') && env.tools.python) {
-      present.push(item);
-      continue;
-    }
-    if (lower.includes('pip') && env.tools.pip) {
-      present.push(item);
-      continue;
-    }
-    if (lower.includes('go') && env.tools.go) {
-      present.push(item);
-      continue;
-    }
-    if (lower.includes('docker') && env.tools.docker) {
-      present.push(item);
-      continue;
-    }
-    if (lower.includes('git') && env.tools.git) {
-      present.push(item);
-      continue;
-    }
-    missing.push(item);
-  }
+  const missing = result.missing.map((resolution) => resolution.requirement.raw);
+  const present = result.present.map((resolution) => resolution.requirement.raw);
 
   return { missing, present };
 }
