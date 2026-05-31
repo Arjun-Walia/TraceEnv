@@ -1,4 +1,4 @@
-export type RuntimeKind = 'node' | 'python' | 'go' | string;
+export type RuntimeKind = 'node' | 'python' | 'go' | 'rust' | 'java' | string;
 
 export interface VersionConstraint {
   runtime: RuntimeKind;

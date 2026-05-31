@@ -8,6 +8,13 @@ function createContext(manifests: string[] = []): InferenceContext {
   return {
     projectRoot: '/tmp/project',
     manifests,
+    manifestEntries: manifests.map((name) => ({
+      name,
+      path: `/tmp/project/${name}`,
+      relativePath: name,
+      directory: '.',
+      depth: 0,
+    })),
     signals: manifests.map((name) => ({ kind: 'manifest', name })),
   };
 }

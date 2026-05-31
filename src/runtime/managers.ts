@@ -162,8 +162,108 @@ export class GoRuntimeManager implements RuntimeManager {
   }
 }
 
+
+export class RustRuntimeManager implements RuntimeManager {
+  readonly runtime = 'rust';
+
+  supportsPlatform(_platform: NodeJS.Platform): boolean {
+    return true;
+  }
+
+  async detectInstalled(): Promise<RuntimeVersion[]> {
+    const probe = probeCommandVersion('rustc', ['--version']);
+    if (!probe) {
+      return [];
+    }
+
+    return [
+      {
+        runtime: 'rust',
+        version: normalizeVersion(probe.version),
+        executablePath: probe.executablePath,
+        managedBy: 'system',
+      },
+    ];
+  }
+
+  async resolveCompatible(range: string, installed: RuntimeVersion[]): Promise<RuntimeVersion | null> {
+    const candidates = installed.filter((item) => satisfiesRange(item.version, range));
+    if (candidates.length === 0) {
+      return null;
+    }
+    return candidates.sort((a, b) => compareVersionDesc(a.version, b.version))[0];
+  }
+
+  async install(_version: string, _projectRoot: string): Promise<RuntimeVersion> {
+    throw new Error('Automatic Rust runtime installation is not yet enabled in this build.');
+  }
+
+  async activate(version: RuntimeVersion): Promise<RuntimeContext> {
+    return {
+      runtime: 'rust',
+      selectedVersion: version.version,
+      executablePath: version.executablePath,
+      envPatch: {
+        TRACEENV_RUNTIME_RUST: version.executablePath,
+        TRACEENV_RUNTIME_RUST_VERSION: version.version,
+      },
+      pathEntries: [path.dirname(version.executablePath)],
+    };
+  }
+}
+
+
+export class JavaRuntimeManager implements RuntimeManager {
+  readonly runtime = 'java';
+
+  supportsPlatform(_platform: NodeJS.Platform): boolean {
+    return true;
+  }
+
+  async detectInstalled(): Promise<RuntimeVersion[]> {
+    const probe = probeCommandVersion('java', ['-version']);
+    if (!probe) {
+      return [];
+    }
+
+    return [
+      {
+        runtime: 'java',
+        version: normalizeVersion(probe.version),
+        executablePath: probe.executablePath,
+        managedBy: 'system',
+      },
+    ];
+  }
+
+  async resolveCompatible(range: string, installed: RuntimeVersion[]): Promise<RuntimeVersion | null> {
+    const candidates = installed.filter((item) => satisfiesRange(item.version, range));
+    if (candidates.length === 0) {
+      return null;
+    }
+    return candidates.sort((a, b) => compareVersionDesc(a.version, b.version))[0];
+  }
+
+  async install(_version: string, _projectRoot: string): Promise<RuntimeVersion> {
+    throw new Error('Automatic Java runtime installation is not yet enabled in this build.');
+  }
+
+  async activate(version: RuntimeVersion): Promise<RuntimeContext> {
+    return {
+      runtime: 'java',
+      selectedVersion: version.version,
+      executablePath: version.executablePath,
+      envPatch: {
+        TRACEENV_RUNTIME_JAVA: version.executablePath,
+        TRACEENV_RUNTIME_JAVA_VERSION: version.version,
+      },
+      pathEntries: [path.dirname(version.executablePath)],
+    };
+  }
+}
+
 export function createDefaultRuntimeManagers(): RuntimeManager[] {
-  return [new NodeRuntimeManager(), new PythonRuntimeManager(), new GoRuntimeManager()];
+  return [new NodeRuntimeManager(), new PythonRuntimeManager(), new GoRuntimeManager(), new RustRuntimeManager(), new JavaRuntimeManager()];
 }
 
 function probeCommandVersion(command: string, args: string[]): { executablePath: string; version: string } | null {

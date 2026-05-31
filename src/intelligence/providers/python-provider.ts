@@ -1,4 +1,5 @@
 import { InferenceContext, InferenceContribution, InferenceProvider, WorkflowStep } from '../inference/contracts.js';
+import { uniqueDirectoriesFor, normalizeIdToken } from './_shared.js';
 
 export class PythonProvider implements InferenceProvider {
   readonly id = 'python';
@@ -15,53 +16,65 @@ export class PythonProvider implements InferenceProvider {
   infer(context: InferenceContext): InferenceContribution {
     const steps: WorkflowStep[] = [];
     const rationale: string[] = [];
+    const pythonDirs = uniqueDirectoriesFor(context, ['requirements.txt', 'pyproject.toml', 'Pipfile']);
 
     if (this.apply(context)) {
-      steps.push({
-        id: 'python-venv',
-        command: 'python -m venv .venv',
-        description: 'Create a local virtual environment',
-        cwd: '.',
-        phase: 'prepare',
-      });
+      for (const directory of pythonDirs) {
+        steps.push({
+          id: directory === '.' ? 'python-venv' : `python-venv-${normalizeIdToken(directory)}`,
+          command: 'python -m venv .venv',
+          description: directory === '.' ? 'Create a local virtual environment' : `Create virtual environment in ${directory}`,
+          cwd: directory,
+          phase: 'prepare',
+        });
+      }
       rationale.push('Python projects should isolate dependencies in a local virtual environment.');
     }
 
-    if (context.manifests.includes('requirements.txt')) {
+    for (const directory of uniqueDirectoriesFor(context, ['requirements.txt'])) {
       steps.push({
-        id: 'pip-install-requirements',
+        id: directory === '.' ? 'pip-install-requirements' : `pip-install-requirements-${normalizeIdToken(directory)}`,
         command: 'python -m pip install -r requirements.txt',
-        description: 'Install Python dependencies from requirements.txt',
-        cwd: '.',
+        description:
+          directory === '.'
+            ? 'Install Python dependencies from requirements.txt'
+            : `Install Python dependencies from ${directory}/requirements.txt`,
+        cwd: directory,
         phase: 'deps',
       });
       rationale.push('Detected requirements.txt, so pip requirements installation was inferred.');
     }
 
-    if (context.manifests.includes('pyproject.toml')) {
+    for (const directory of uniqueDirectoriesFor(context, ['pyproject.toml'])) {
       steps.push({
-        id: 'pip-install-project',
+        id: directory === '.' ? 'pip-install-project' : `pip-install-project-${normalizeIdToken(directory)}`,
         command: 'python -m pip install .',
-        description: 'Install Python project dependencies',
-        cwd: '.',
+        description:
+          directory === '.'
+            ? 'Install Python project dependencies'
+            : `Install Python project dependencies in ${directory}`,
+        cwd: directory,
         phase: 'deps',
       });
       rationale.push('Detected pyproject.toml, so pip project install was inferred.');
     }
 
-    if (context.manifests.includes('Pipfile')) {
+    for (const directory of uniqueDirectoriesFor(context, ['Pipfile'])) {
       steps.push({
-        id: 'pipenv-bootstrap',
+        id: directory === '.' ? 'pipenv-bootstrap' : `pipenv-bootstrap-${normalizeIdToken(directory)}`,
         command: 'python -m pip install pipenv',
-        description: 'Install pipenv for Pipfile-based projects',
-        cwd: '.',
+        description:
+          directory === '.'
+            ? 'Install pipenv for Pipfile-based projects'
+            : `Install pipenv for Pipfile project in ${directory}`,
+        cwd: directory,
         phase: 'deps',
       });
       steps.push({
-        id: 'pipenv-install',
+        id: directory === '.' ? 'pipenv-install' : `pipenv-install-${normalizeIdToken(directory)}`,
         command: 'pipenv install',
-        description: 'Install dependencies from Pipfile',
-        cwd: '.',
+        description: directory === '.' ? 'Install dependencies from Pipfile' : `Install dependencies from ${directory}/Pipfile`,
+        cwd: directory,
         phase: 'deps',
       });
       rationale.push('Detected Pipfile, so pipenv-based dependency installation was inferred.');

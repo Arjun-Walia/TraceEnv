@@ -115,6 +115,13 @@ export class TracePipeline {
       throw new ValidationError(issues.join(' | '));
     }
 
+    const runtimeEnvPatch: Record<string, string> = {};
+    const runtimePathEntries: string[] = [];
+    for (const item of runtimeOrchestration.resolved) {
+      Object.assign(runtimeEnvPatch, item.context.envPatch);
+      runtimePathEntries.push(...item.context.pathEntries);
+    }
+
     const plan = this.planner.createPlan(projectRoot, workflow);
     emit('pipeline.plan.created', {
       planId: plan.planId,
@@ -166,6 +173,8 @@ export class TracePipeline {
       dryRun: options.dryRun,
       skipSteps: options.skipSteps,
       resumeFromLastSuccess: options.resume,
+      envPatch: runtimeEnvPatch,
+      pathEntries: runtimePathEntries,
       onStepStart: (index, total, command) => {
         emit('pipeline.step.started', { index, total, command });
         hooks.onStepStart?.(index, total, command);
@@ -186,6 +195,48 @@ export class TracePipeline {
           recoverySuggestion: result.recoverySuggestion ?? null,
         });
         hooks.onStepResult?.(index, total, result);
+      },
+      onRuntimeMismatch: async ({ step, stderr, command }) => {
+        const retryResolution = this.versionResolver.resolve(projectRoot, [stderr]);
+        if (retryResolution.conflicts.length > 0 || retryResolution.requirements.length === 0) {
+          return {
+            retry: false,
+            reason: `Runtime constraints unresolved after failure in step ${step.stepId}.`,
+          };
+        }
+
+        const retryOrchestration = await this.runtimeOrchestrator.resolveRequirements(
+          projectRoot,
+          retryResolution.requirements
+        );
+        if (retryOrchestration.unresolved.length > 0) {
+          return {
+            retry: false,
+            reason: `No compatible runtime available after runtime mismatch in command: ${command}`,
+          };
+        }
+
+        const patch: Record<string, string> = {};
+        const paths: string[] = [];
+        for (const resolved of retryOrchestration.resolved) {
+          Object.assign(patch, resolved.context.envPatch);
+          paths.push(...resolved.context.pathEntries);
+        }
+
+        emit('pipeline.runtime.retry.resolved', {
+          command,
+          requirements: retryResolution.requirements.map((req) => ({
+            runtime: req.runtime,
+            range: req.versionRange,
+          })),
+        });
+
+        return {
+          retry: true,
+          reason: `Runtime mismatch handled for ${command}; retrying with resolved runtime context.`,
+          envPatch: patch,
+          pathEntries: paths,
+        };
       },
     });
 

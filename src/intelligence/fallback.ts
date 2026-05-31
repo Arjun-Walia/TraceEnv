@@ -9,6 +9,30 @@ interface ManifestHint {
 
 const MANIFEST_HINTS: ManifestHint[] = [
   {
+    manifest: 'Gemfile',
+    hints: ['Ruby project detected from Gemfile.'],
+    suggestedCommands: ['bundle install', 'bundle exec rake'],
+    prerequisites: ['Ruby 3.x', 'bundler'],
+  },
+  {
+    manifest: 'Gemfile.lock',
+    hints: ['Ruby lockfile detected.'],
+    suggestedCommands: ['bundle install'],
+    prerequisites: ['Ruby 3.x', 'bundler'],
+  },
+  {
+    manifest: 'composer.json',
+    hints: ['PHP project detected from composer.json.'],
+    suggestedCommands: ['composer install'],
+    prerequisites: ['PHP 8.x', 'composer'],
+  },
+  {
+    manifest: 'Package.swift',
+    hints: ['Swift project detected from Package.swift.'],
+    suggestedCommands: ['swift build', 'swift test'],
+    prerequisites: ['Swift toolchain'],
+  },
+  {
     manifest: 'package.json',
     hints: ['Node.js project detected from package.json.'],
     suggestedCommands: ['npm install', 'npm run dev'],

@@ -55,3 +55,19 @@ test('planner respects explicit step safety metadata', () => {
   assert.equal(step.retryPolicy.strategy, 'fixed');
   assert.equal(step.retryPolicy.backoffMs, 50);
 });
+
+test('planner rejects step cwd escaping project root', () => {
+  const planner = new Planner();
+  const workflow: WorkflowSpec = {
+    version: '1.0.0',
+    steps: [
+      {
+        id: 'escape',
+        command: 'npm install',
+        cwd: '../outside',
+      },
+    ],
+  };
+
+  assert.throws(() => planner.createPlan('/tmp/project', workflow), /escapes project root/);
+});

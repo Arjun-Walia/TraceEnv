@@ -127,6 +127,7 @@ export type FailureKind =
   | 'network'
   | 'timeout'
   | 'service'
+  | 'runtime'
   | 'unknown';
 
 export interface StepResult {

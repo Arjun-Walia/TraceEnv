@@ -1,6 +1,8 @@
 import { GoProvider } from '../providers/go-provider.js';
+import { JavaProvider } from '../providers/java-provider.js';
 import { NodeProvider } from '../providers/node-provider.js';
 import { PythonProvider } from '../providers/python-provider.js';
+import { RustProvider } from '../providers/rust-provider.js';
 import { loadProviderPlugins } from '../plugins/loader.js';
 import { registerPluginProviders } from '../plugins/registration.js';
 import { ProviderRegistry } from './provider-registry.js';
@@ -12,6 +14,8 @@ export function createDefaultProviderRegistry(options?: { projectRoot?: string; 
   registry.register(new NodeProvider());
   registry.register(new PythonProvider());
   registry.register(new GoProvider());
+  registry.register(new RustProvider());
+  registry.register(new JavaProvider());
 
   const projectRoot = options?.projectRoot ?? process.cwd();
   const loaded = loadProviderPlugins(projectRoot, options?.pluginPaths);

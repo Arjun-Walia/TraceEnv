@@ -96,6 +96,15 @@ test('default registry maintains deterministic ordering with plugin priorities',
     const providers = registry.resolve({
       projectRoot: dir,
       manifests: ['package.json'],
+      manifestEntries: [
+        {
+          name: 'package.json',
+          path: path.join(dir, 'package.json'),
+          relativePath: 'package.json',
+          directory: '.',
+          depth: 0,
+        },
+      ],
       signals: [{ kind: 'manifest', name: 'package.json' }],
     });
 
