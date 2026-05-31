@@ -6,13 +6,14 @@ import { LocalGgufProvider } from './ai-engine/local-gguf.js';
 import { RemoteApiProvider } from './ai-engine/remote-api.js';
 import { TraceEnvConfig } from '../config.js';
 import { validateInferredWorkflow } from './validation.js';
-import { scanManifests } from '../tooling/fs/manifest-scanner.js';
+import { scanManifestEntries, scanManifests } from '../tooling/fs/manifest-scanner.js';
 import { createPartialWorkflow } from './fallback.js';
 
 export class IntelligenceEngine {
   constructor(private readonly config?: Pick<TraceEnvConfig, 'mode' | 'provider' | 'model' | 'apiKey' | 'apiKeys'>) {}
 
   private createRequest(projectRoot: string): IntelligenceRequest {
+    const manifestEntries = scanManifestEntries(projectRoot);
     const manifests = scanManifests(projectRoot);
 
     return {
@@ -24,7 +25,7 @@ export class IntelligenceEngine {
           : this.config?.provider === 'claude'
             ? this.config.apiKeys?.claude ?? this.config?.apiKey ?? null
             : this.config?.apiKey ?? null,
-      prompt: buildPromptBundle('infer-workflow', { projectRoot, manifests }),
+      prompt: buildPromptBundle('infer-workflow', { projectRoot, manifests, manifestEntries }),
     };
   }
 

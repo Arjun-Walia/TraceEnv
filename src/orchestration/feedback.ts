@@ -18,6 +18,16 @@ function classifyFailure(command: string, stderr: string, exitCode: number): Fai
   if (text.includes('timeout') || exitCode === 124) {
     return 'timeout';
   }
+  if (
+    text.includes('requires-python') ||
+    text.includes('unsupported engine') ||
+    text.includes('engines.node') ||
+    text.includes('node version') ||
+    text.includes('requires go') ||
+    text.includes('python 3.')
+  ) {
+    return 'runtime';
+  }
   if (text.includes('docker') || text.includes('service') || text.includes('compose')) {
     return 'service';
   }
@@ -39,13 +49,15 @@ function suggestionFor(kind: FailureKind, command: string): string {
       return 'Increase the step timeout or split the step into smaller commands with clearer checkpoints.';
     case 'service':
       return 'Verify the required service is installed and running before this step. For Docker workflows, ensure Docker Desktop or the daemon is started.';
+    case 'runtime':
+      return 'Runtime version mismatch detected. Resolve the required Node/Python/Go version, then retry from the last successful step.';
     default:
       return 'Inspect the command output, fix the failing prerequisite, and rerun trace. Consider recording a more explicit workflow if this step is ambiguous.';
   }
 }
 
 function retriable(kind: FailureKind): boolean {
-  return kind === 'network' || kind === 'service' || kind === 'timeout';
+  return kind === 'network' || kind === 'service' || kind === 'timeout' || kind === 'runtime';
 }
 
 export function buildExecutionFeedback(command: string, stderr: string, exitCode: number): ExecutionFeedback {

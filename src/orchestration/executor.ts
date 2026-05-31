@@ -22,9 +22,16 @@ export class OrchestrationExecutor {
       resumeFromLastSuccess?: boolean;
       safetyPolicy?: Partial<ExecutionSafetyPolicy>;
       runId: string;
+      envPatch?: Record<string, string>;
+      pathEntries?: string[];
       onStepStart?: (index: number, total: number, command: string) => void;
       onStepRetry?: (index: number, total: number, attempt: number, maxAttempts: number, reason: string) => void;
       onStepResult?: (index: number, total: number, result: StepResult) => void;
+      onRuntimeMismatch?: (args: {
+        step: ExecutionPlanStep;
+        stderr: string;
+        command: string;
+      }) => Promise<{ retry: boolean; reason: string; envPatch?: Record<string, string>; pathEntries?: string[] }>;
     }
   ): Promise<{ success: boolean; results: StepResult[]; failureReason?: string; recoverySuggestions: string[] }> {
     const dryRun = options.dryRun ?? false;
@@ -40,6 +47,8 @@ export class OrchestrationExecutor {
     };
     const results: StepResult[] = [];
     const recoverySuggestions: string[] = [];
+    const runtimeEnvPatch: Record<string, string> = { ...(options.envPatch ?? {}) };
+    const runtimePathEntries = [...(options.pathEntries ?? [])];
     const planSignature = this.computePlanSignature(plan);
 
     this.runLogRepo.startRun(options.runId, plan.projectRoot);
@@ -218,6 +227,8 @@ export class OrchestrationExecutor {
           command: step.command,
           cwd: step.cwd,
           timeoutMs: step.timeoutMs,
+          envPatch: runtimeEnvPatch,
+          pathEntries: runtimePathEntries,
         });
 
         let feedback: ExecutionFeedback | undefined;
@@ -260,6 +271,34 @@ export class OrchestrationExecutor {
 
         if (output.exitCode === 0 || !feedback?.retriable || attempt >= maxAttempts) {
           break;
+        }
+
+        if (feedback.failureKind === 'runtime' && options.onRuntimeMismatch) {
+          const runtimeRetry = await options.onRuntimeMismatch({
+            step,
+            stderr: output.stderr,
+            command: step.command,
+          });
+
+          if (!runtimeRetry.retry) {
+            break;
+          }
+
+          if (runtimeRetry.envPatch) {
+            Object.assign(runtimeEnvPatch, runtimeRetry.envPatch);
+          }
+          if (runtimeRetry.pathEntries && runtimeRetry.pathEntries.length > 0) {
+            runtimePathEntries.unshift(...runtimeRetry.pathEntries);
+          }
+
+          options.onStepRetry?.(
+            stepNumber,
+            plan.resolvedSteps.length,
+            attempt + 1,
+            maxAttempts,
+            runtimeRetry.reason
+          );
+          continue;
         }
 
         if (step.retryPolicy.strategy === 'fixed' && (step.retryPolicy.backoffMs ?? 0) > 0) {

@@ -1,4 +1,5 @@
 import { WorkflowStepSpec } from '../../domain/types.js';
+import { ManifestEntry } from '../../tooling/fs/manifest-scanner.js';
 
 export type ProjectSignalKind = 'manifest' | 'tool' | 'runtime' | 'hint';
 
@@ -40,6 +41,7 @@ export interface ProviderContributionCandidate {
 export interface InferenceContext {
   projectRoot: string;
   manifests: string[];
+  manifestEntries: ManifestEntry[];
   signals: ProjectSignal[];
 }
 

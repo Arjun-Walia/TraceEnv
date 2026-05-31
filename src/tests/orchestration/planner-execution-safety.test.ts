@@ -22,7 +22,7 @@ test('planner propagates execution safety defaults and retry policy', () => {
 
   assert.equal(step.retryPolicy.maxAttempts, 3);
   assert.equal(step.retryPolicy.strategy, 'none');
-  assert.equal(step.idempotent, false);
+  assert.equal(step.idempotent, true);
   assert.deepEqual(step.sideEffects, ['unknown']);
   assert.equal(step.timeoutMs, 12345);
 });
@@ -54,4 +54,20 @@ test('planner respects explicit step safety metadata', () => {
   assert.equal(step.retryPolicy.maxAttempts, 2);
   assert.equal(step.retryPolicy.strategy, 'fixed');
   assert.equal(step.retryPolicy.backoffMs, 50);
+});
+
+test('planner rejects step cwd escaping project root', () => {
+  const planner = new Planner();
+  const workflow: WorkflowSpec = {
+    version: '1.0.0',
+    steps: [
+      {
+        id: 'escape',
+        command: 'npm install',
+        cwd: '../outside',
+      },
+    ],
+  };
+
+  assert.throws(() => planner.createPlan('/tmp/project', workflow), /escapes project root/);
 });

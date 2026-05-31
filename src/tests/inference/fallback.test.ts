@@ -34,7 +34,7 @@ test('partial workflow includes confidence, hints, suggested commands, and recom
 });
 
 test('engine falls back to partial mode when signals exist but no full workflow can be inferred', async () => {
-  await withTempProject(['Cargo.toml'], async (projectRoot) => {
+  await withTempProject(['Makefile'], async (projectRoot) => {
     const engine = new IntelligenceEngine({
       mode: 'local',
       provider: 'rule',
@@ -46,7 +46,7 @@ test('engine falls back to partial mode when signals exist but no full workflow 
 
     assert.equal(result.source, 'rule');
     assert.equal(result.workflow.inference?.mode, 'partial');
-    assert.deepEqual(result.workflow.inference?.signals, ['Cargo.toml']);
+    assert.deepEqual(result.workflow.inference?.signals, ['Makefile']);
     assert.ok(result.workflow.steps.length > 0);
   });
 });

@@ -56,7 +56,10 @@ function resolveCandidatePaths(projectRoot: string, explicitPaths?: string[]): s
     items.push(...fromEnv.split(/[;,]/g).map((item) => item.trim()).filter((item) => item.length > 0));
   }
 
-  items.push(path.join(projectRoot, '.traceenv', 'plugins'));
+  const allowProjectPlugins = process.env.TRACEENV_ENABLE_PROJECT_PLUGINS === '1';
+  if (allowProjectPlugins) {
+    items.push(path.join(projectRoot, '.traceenv', 'plugins'));
+  }
 
   const normalized = items
     .map((item) => (path.isAbsolute(item) ? item : path.resolve(projectRoot, item)))

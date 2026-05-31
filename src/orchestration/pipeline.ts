@@ -7,6 +7,9 @@ import { Validator } from './validator.js';
 import { OrchestrationExecutor } from './executor.js';
 import { ValidationError } from '../domain/errors.js';
 import { EventBus, TraceEvent } from '../observability/events.js';
+import { VersionConstraintResolver } from '../runtime/constraint-resolver.js';
+import { RuntimeOrchestrator } from '../runtime/orchestrator.js';
+import { createDefaultRuntimeManagers } from '../runtime/managers.js';
 
 export interface PipelineHooks {
   onPlan?: (args: {
@@ -31,6 +34,8 @@ export class TracePipeline {
   private planner = new Planner();
   private validator = new Validator();
   private executor = new OrchestrationExecutor();
+  private versionResolver = new VersionConstraintResolver();
+  private runtimeOrchestrator = new RuntimeOrchestrator({ managers: createDefaultRuntimeManagers() });
 
   async run(startDir: string, options: TraceRunOptions = {}, hooks: PipelineHooks = {}): Promise<TraceRunResult> {
     const events = new EventBus();
@@ -69,6 +74,53 @@ export class TracePipeline {
       missingPrerequisites: analysis.missingPrerequisites,
       dependencyCount: analysis.dependencies.length,
     });
+
+    const runtimeResolution = this.versionResolver.resolve(projectRoot, []);
+    emit('pipeline.runtime.constraints.resolved', {
+      requirementCount: runtimeResolution.requirements.length,
+      conflictCount: runtimeResolution.conflicts.length,
+      requirements: runtimeResolution.requirements.map((item) => ({
+        runtime: item.runtime,
+        range: item.versionRange,
+        confidence: item.confidence,
+      })),
+    });
+
+    if (runtimeResolution.conflicts.length > 0) {
+      const issues = runtimeResolution.conflicts.map(
+        (conflict) => `${conflict.runtime}: ${conflict.reason}`
+      );
+      emit('pipeline.runtime.constraints.conflict', { issues });
+      throw new ValidationError(issues.join(' | '));
+    }
+
+    const runtimeOrchestration = await this.runtimeOrchestrator.resolveRequirements(
+      projectRoot,
+      runtimeResolution.requirements
+    );
+    emit('pipeline.runtime.preflight.completed', {
+      resolvedCount: runtimeOrchestration.resolved.length,
+      unresolvedCount: runtimeOrchestration.unresolved.length,
+      resolved: runtimeOrchestration.resolved.map((item) => ({
+        runtime: item.requirement.runtime,
+        version: item.selected.version,
+      })),
+    });
+
+    if (runtimeOrchestration.unresolved.length > 0) {
+      const issues = runtimeOrchestration.unresolved.map(
+        (item) => `${item.requirement.runtime}: ${item.reason}`
+      );
+      emit('pipeline.runtime.preflight.failed', { issues });
+      throw new ValidationError(issues.join(' | '));
+    }
+
+    const runtimeEnvPatch: Record<string, string> = {};
+    const runtimePathEntries: string[] = [];
+    for (const item of runtimeOrchestration.resolved) {
+      Object.assign(runtimeEnvPatch, item.context.envPatch);
+      runtimePathEntries.push(...item.context.pathEntries);
+    }
 
     const plan = this.planner.createPlan(projectRoot, workflow);
     emit('pipeline.plan.created', {
@@ -121,6 +173,8 @@ export class TracePipeline {
       dryRun: options.dryRun,
       skipSteps: options.skipSteps,
       resumeFromLastSuccess: options.resume,
+      envPatch: runtimeEnvPatch,
+      pathEntries: runtimePathEntries,
       onStepStart: (index, total, command) => {
         emit('pipeline.step.started', { index, total, command });
         hooks.onStepStart?.(index, total, command);
@@ -141,6 +195,48 @@ export class TracePipeline {
           recoverySuggestion: result.recoverySuggestion ?? null,
         });
         hooks.onStepResult?.(index, total, result);
+      },
+      onRuntimeMismatch: async ({ step, stderr, command }) => {
+        const retryResolution = this.versionResolver.resolve(projectRoot, [stderr]);
+        if (retryResolution.conflicts.length > 0 || retryResolution.requirements.length === 0) {
+          return {
+            retry: false,
+            reason: `Runtime constraints unresolved after failure in step ${step.stepId}.`,
+          };
+        }
+
+        const retryOrchestration = await this.runtimeOrchestrator.resolveRequirements(
+          projectRoot,
+          retryResolution.requirements
+        );
+        if (retryOrchestration.unresolved.length > 0) {
+          return {
+            retry: false,
+            reason: `No compatible runtime available after runtime mismatch in command: ${command}`,
+          };
+        }
+
+        const patch: Record<string, string> = {};
+        const paths: string[] = [];
+        for (const resolved of retryOrchestration.resolved) {
+          Object.assign(patch, resolved.context.envPatch);
+          paths.push(...resolved.context.pathEntries);
+        }
+
+        emit('pipeline.runtime.retry.resolved', {
+          command,
+          requirements: retryResolution.requirements.map((req) => ({
+            runtime: req.runtime,
+            range: req.versionRange,
+          })),
+        });
+
+        return {
+          retry: true,
+          reason: `Runtime mismatch handled for ${command}; retrying with resolved runtime context.`,
+          envPatch: patch,
+          pathEntries: paths,
+        };
       },
     });
 

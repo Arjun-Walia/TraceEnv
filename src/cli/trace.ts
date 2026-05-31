@@ -7,6 +7,7 @@ import { StepResult } from '../domain/types.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { detectProjectRoot } from '../tooling/fs/project-detector.js';
+import { scanManifests } from '../tooling/fs/manifest-scanner.js';
 import { accent, bold, BRAILLE_SPINNER, clearLine, muted, padRight, secondary, white } from '../ui/theme.js';
 import { TraceEvent } from '../observability/events.js';
 
@@ -130,23 +131,72 @@ async function renderWorkspaceCard(projectRoot: string): Promise<void> {
     clearLine();
   }
 
-  const hasPackage = fs.existsSync(path.join(projectRoot, 'package.json'));
-  const hasCompose = fs.existsSync(path.join(projectRoot, 'docker-compose.yml')) || fs.existsSync(path.join(projectRoot, 'docker-compose.yaml'));
-  const hasEnv = fs.existsSync(path.join(projectRoot, '.env.example'));
-
-  const deps = countDependencies(projectRoot);
-  const services = countComposeServices(projectRoot);
-  const keys = countEnvKeys(projectRoot);
+  const manifests = scanManifests(projectRoot);
+  const rows = buildWorkspaceRows(projectRoot, manifests);
   const elapsed = Date.now() - scanStart;
   const { inner, body } = getCardWidths();
 
   renderCardTop('TraceEnv: Workspace Analysis', inner);
   console.log(cardRow('', body));
-  console.log(cardRow(`[${hasPackage ? '✓' : '·'}] ${padRight('package.json', 24)} ${hasPackage ? `Detected ${deps} dependencies` : 'Optional - not detected'}`, body));
-  console.log(cardRow(`[${hasCompose ? '✓' : '·'}] ${padRight('docker-compose.yml', 24)} ${hasCompose ? `Detected ${services} services` : 'Optional - not detected'}`, body));
-  console.log(cardRow(`[${hasEnv ? '✓' : '·'}] ${padRight('.env.example', 24)} ${hasEnv ? `Detected ${keys} config keys` : 'Optional - not detected'}`, body));
+
+  if (rows.length === 0) {
+    console.log(cardRow(`[·] ${padRight('No known manifests', 24)} No project signals detected`, body));
+  } else {
+    rows.forEach((row) => console.log(cardRow(row, body)));
+  }
+
   console.log(cardRow('', body));
   renderCardBottom(inner, `⏱ ${elapsed}ms`);
+}
+
+function buildWorkspaceRows(projectRoot: string, manifests: string[]): string[] {
+  const rows: string[] = [];
+
+  for (const manifest of manifests) {
+    if (manifest === 'package.json') {
+      rows.push(`[✓] ${padRight('package.json', 24)} Detected ${countDependencies(projectRoot)} dependencies`);
+      continue;
+    }
+
+    if (manifest === '.env.example') {
+      rows.push(`[✓] ${padRight('.env.example', 24)} Detected ${countEnvKeys(projectRoot)} config keys`);
+      continue;
+    }
+
+    if (manifest === 'docker-compose.yml' || manifest === 'docker-compose.yaml') {
+      rows.push(`[✓] ${padRight(manifest, 24)} Detected ${countComposeServices(projectRoot)} services`);
+      continue;
+    }
+
+    if (manifest === 'requirements.txt') {
+      rows.push(`[✓] ${padRight('requirements.txt', 24)} Python dependencies declared`);
+      continue;
+    }
+
+    if (manifest === 'pyproject.toml') {
+      rows.push(`[✓] ${padRight('pyproject.toml', 24)} Python project metadata detected`);
+      continue;
+    }
+
+    if (manifest === 'go.mod') {
+      rows.push(`[✓] ${padRight('go.mod', 24)} Go module project detected`);
+      continue;
+    }
+
+    if (manifest === 'Cargo.toml') {
+      rows.push(`[✓] ${padRight('Cargo.toml', 24)} Rust project detected`);
+      continue;
+    }
+
+    if (manifest === 'pom.xml' || manifest === 'build.gradle' || manifest === 'build.gradle.kts') {
+      rows.push(`[✓] ${padRight(manifest, 24)} Java build manifest detected`);
+      continue;
+    }
+
+    rows.push(`[✓] ${padRight(manifest, 24)} Project signal detected`);
+  }
+
+  return rows;
 }
 
 function printPlan(args: {

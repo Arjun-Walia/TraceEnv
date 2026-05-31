@@ -4,6 +4,8 @@ export interface CommandRunInput {
   command: string;
   cwd: string;
   timeoutMs: number;
+  envPatch?: Record<string, string>;
+  pathEntries?: string[];
 }
 
 export interface CommandRunResult {
@@ -52,10 +54,13 @@ export function runCommand(input: CommandRunInput): Promise<CommandRunResult> {
     let stderr = '';
     let timedOut = false;
 
+    const mergedEnv = buildCommandEnv(input.envPatch, input.pathEntries);
+
     const proc = child_process.spawn(shell, [shellArg, normalized.command], {
       cwd: input.cwd,
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: input.timeoutMs,
+      env: mergedEnv,
     });
 
     proc.stdout?.on('data', (chunk) => {
@@ -98,4 +103,22 @@ export function runCommand(input: CommandRunInput): Promise<CommandRunResult> {
       });
     });
   });
+}
+
+function buildCommandEnv(envPatch?: Record<string, string>, pathEntries?: string[]): NodeJS.ProcessEnv {
+  const baseEnv: NodeJS.ProcessEnv = { ...process.env };
+
+  if (envPatch) {
+    for (const [key, value] of Object.entries(envPatch)) {
+      baseEnv[key] = value;
+    }
+  }
+
+  if (pathEntries && pathEntries.length > 0) {
+    const delimiter = process.platform === 'win32' ? ';' : ':';
+    const existingPath = baseEnv.PATH ?? '';
+    baseEnv.PATH = `${pathEntries.join(delimiter)}${existingPath ? `${delimiter}${existingPath}` : ''}`;
+  }
+
+  return baseEnv;
 }

@@ -1,4 +1,5 @@
 import { InferenceContext, InferenceContribution, InferenceProvider, WorkflowStep } from '../inference/contracts.js';
+import { uniqueDirectoriesFor, normalizeIdToken } from './_shared.js';
 
 export class NodeProvider implements InferenceProvider {
   readonly id = 'node';
@@ -15,6 +16,14 @@ export class NodeProvider implements InferenceProvider {
 
   infer(context: InferenceContext): InferenceContribution {
     const steps: WorkflowStep[] = [];
+    const packageManager = detectNodePackageManager(context);
+    const installCommand = `${packageManager} install`;
+
+    const directories = uniqueDirectoriesFor(context, ['package.json']);
+    const hasRootPackageJson = context.manifests.includes('package.json');
+    if (hasRootPackageJson && !directories.includes('.')) {
+      directories.unshift('.');
+    }
 
     if (context.manifests.includes('.env.example')) {
       steps.push({
@@ -36,19 +45,25 @@ export class NodeProvider implements InferenceProvider {
       });
     }
 
-    if (context.manifests.includes('package.json')) {
+    for (const directory of directories) {
       steps.push({
-        id: 'npm-install',
-        command: 'npm install',
-        description: 'Install npm dependencies',
-        cwd: '.',
+        id: directory === '.' ? `${packageManager}-install` : `${packageManager}-install-${normalizeIdToken(directory)}`,
+        command: installCommand,
+        description:
+          directory === '.'
+            ? `Install ${packageManager} dependencies`
+            : `Install ${packageManager} dependencies in ${directory}`,
+        cwd: directory,
         phase: 'deps',
       });
     }
 
     const rationale: string[] = [];
     if (context.manifests.includes('package.json')) {
-      rationale.push('Detected package.json, so npm dependency installation is required.');
+      rationale.push(`Detected package.json, so ${packageManager} dependency installation is required.`);
+    }
+    if (directories.length > 1 || (directories.length === 1 && directories[0] !== '.')) {
+      rationale.push('Detected multiple package.json files, so per-directory dependency installation steps were generated.');
     }
     if (context.manifests.includes('.env.example')) {
       rationale.push('Detected .env.example, so environment file bootstrap is suggested.');
@@ -65,4 +80,16 @@ export class NodeProvider implements InferenceProvider {
       rationale,
     };
   }
+}
+
+function detectNodePackageManager(context: InferenceContext): 'npm' | 'pnpm' | 'yarn' {
+  if (context.manifests.includes('pnpm-lock.yaml')) {
+    return 'pnpm';
+  }
+
+  if (context.manifests.includes('yarn.lock')) {
+    return 'yarn';
+  }
+
+  return 'npm';
 }

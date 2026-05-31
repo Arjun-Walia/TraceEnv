@@ -10,6 +10,11 @@ export type KnownTool =
   | 'pip'
   | 'venv'
   | 'go'
+  | 'rustc'
+  | 'cargo'
+  | 'java'
+  | 'mvn'
+  | 'gradle'
   | 'docker'
   | 'docker-compose'
   | 'git';
@@ -63,6 +68,11 @@ const TOOL_EXECUTABLES: Record<KnownTool, string[]> = {
   pip: ['pip', 'pip3'],
   venv: [],
   go: ['go'],
+  rustc: ['rustc'],
+  cargo: ['cargo'],
+  java: ['java'],
+  mvn: ['mvn'],
+  gradle: ['gradle'],
   docker: ['docker'],
   'docker-compose': ['docker-compose'],
   git: ['git'],
@@ -77,6 +87,11 @@ const TOOL_ORDER: KnownTool[] = [
   'pip',
   'venv',
   'go',
+  'rustc',
+  'cargo',
+  'java',
+  'mvn',
+  'gradle',
   'docker',
   'docker-compose',
   'git',
@@ -212,6 +227,18 @@ export function parseRequirements(declared: string[] | undefined): Requirement[]
     if (lower.includes('go')) {
       return { id: `req-${index + 1}`, type: 'tool', raw, tool: 'go' };
     }
+    if (lower.includes('rust') || lower.includes('cargo')) {
+      return { id: `req-${index + 1}`, type: 'tool', raw, tool: 'rustc' };
+    }
+    if (lower.includes('java') || lower.includes('jdk') || lower.includes('jre')) {
+      return { id: `req-${index + 1}`, type: 'tool', raw, tool: 'java' };
+    }
+    if (lower.includes('maven') || lower.includes('mvn')) {
+      return { id: `req-${index + 1}`, type: 'tool', raw, tool: 'mvn' };
+    }
+    if (lower.includes('gradle')) {
+      return { id: `req-${index + 1}`, type: 'tool', raw, tool: 'gradle' };
+    }
     if (lower.includes('docker')) {
       return { id: `req-${index + 1}`, type: 'tool', raw, tool: 'docker' };
     }
@@ -270,6 +297,27 @@ function remediationForTool(requirementId: string, tool: KnownTool): Remediation
       common.win32 = ['Ensure Python 3.x is installed (venv is bundled)'];
       common.linux = ['sudo apt-get install -y python3-venv'];
       common.darwin = ['Ensure Python 3.x from Homebrew is installed'];
+      break;
+    case 'rustc':
+    case 'cargo':
+      common.win32 = ['winget install Rustlang.Rustup'];
+      common.linux = ['curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh'];
+      common.darwin = ['curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh'];
+      break;
+    case 'java':
+      common.win32 = ['winget install EclipseAdoptium.Temurin.21.JDK'];
+      common.linux = ['sudo apt-get install -y openjdk-21-jdk'];
+      common.darwin = ['brew install openjdk'];
+      break;
+    case 'mvn':
+      common.win32 = ['winget install Apache.Maven'];
+      common.linux = ['sudo apt-get install -y maven'];
+      common.darwin = ['brew install maven'];
+      break;
+    case 'gradle':
+      common.win32 = ['winget install Gradle.Gradle'];
+      common.linux = ['sudo apt-get install -y gradle'];
+      common.darwin = ['brew install gradle'];
       break;
     case 'go':
       common.win32 = ['winget install GoLang.Go'];

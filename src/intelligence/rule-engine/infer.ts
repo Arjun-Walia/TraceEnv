@@ -1,12 +1,13 @@
 import { WorkflowSpec } from '../../domain/types.js';
-import { scanManifests } from '../../tooling/fs/manifest-scanner.js';
+import { scanManifestEntries, scanManifests } from '../../tooling/fs/manifest-scanner.js';
 import { createDefaultProviderRegistry } from '../inference/default-registry.js';
 import { InferenceOrchestrator } from '../inference/orchestrator.js';
 import { buildInferenceContext } from '../inference/signals.js';
 
 export function inferWorkflow(projectRoot: string): WorkflowSpec {
+  const manifestEntries = scanManifestEntries(projectRoot);
   const manifests = scanManifests(projectRoot);
-  const context = buildInferenceContext(projectRoot, manifests);
+  const context = buildInferenceContext(projectRoot, manifests, manifestEntries);
   const registry = createDefaultProviderRegistry({ projectRoot });
   const orchestrator = new InferenceOrchestrator(registry);
   const inference = orchestrator.infer(context);
